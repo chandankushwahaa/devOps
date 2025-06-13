@@ -2,6 +2,7 @@
 
 1. [Overview](#1-overview)
 2. [Database Design](#2-database-design-and-management)
+3. [Performance Tuning and Optimization](#performance-tuning-and-optimization)
 
 
 
@@ -411,3 +412,225 @@ sp_dboption 'my_database', 'trunc log on chkpt', true  -- Truncates log automati
 -   **Security**: Ensure only authorized users (e.g., sa_role) manage critical operations like backups or user creation.
 -   **Performance Tuning**: Regularly update statistics (UPDATE STATISTICS) and rebuild indexes (REORG) to maintain performance.
 -   **Monitoring**: Use system stored procedures (sp_who, sp_lock, sp_helpdb) for real-time monitoring.
+
+
+# Performance Tuning and Optimization
+## 1. How do you identify and resolve performance bottlenecks in Sybase?
+### Identifying Bottlenecks
+Performance bottlenecks in Sybase ASE can arise from various sources, such as poorly optimized queries, insufficient resources, locking issues, or outdated statistics. Here’s how to identify them:
+**Monitor Server Activity**:
+- Use `sp_who` to view active user connections and identify blocking processes
+- Use `sp_lock` to check for locking conflicts
+- Query master..sysprocesses for detailed process information, including CPU and I/O usage:
+```sql
+SELECT spid, status, cpu, physical_io FROM master..sysprocesses
+```
+**Analyze Query Performance**:
+- Enable `set showplan on` to display query execution plans and identify inefficient operations (e.g., table scans):
+```sql
+set showplan on
+SELECT * FROM my_table WHERE column1 = 'value'
+```
+- Use `set statistics io on` to measure I/O costs:
+```sql
+set statistics io on
+SELECT * FROM my_table
+```
+- Use `set statistics time on` to measure query execution time:
+```sql
+set statistics time on
+SELECT * FROM my_table
+```
+**System Monitoring**:
+- Use `sp_monitor` to gather server-wide performance metrics (e.g., CPU usage, I/O, network activity):
+- Query `master..mon*` tables (e.g., `monSysStatement`, `monProcess`) for detailed performance data in ASE 15.0+:
+```sql
+SELECT * FROM master..monSysStatement
+```
+**Check Resource Usage**:
+- Monitor disk I/O, memory, and CPU usage with tools like sp_sysmon for a comprehensive performance report:
+```sql
+sp_sysmon '00:05:00'  -- Run for 5 minutes
+```
+#### Resolving Bottlenecks
+-   Create proper indexes (clustered/non-clustered).
+    
+-   Rewrite inefficient queries (avoid cursors, nested loops).
+    
+-   Update statistics.
+    
+-   Normalize or denormalize tables if appropriate.
+    
+-   Tune memory parameters and caches.
+
+## 2. What tools or commands do you use for query optimization in Sybase?
+**Showplan**
+-   Displays the query execution plan, revealing whether indexes are used or if table scans occur.
+```sql
+set showplan on
+SELECT * FROM employees WHERE emp_id = 100
+```
+**Statistics IO**:
+-   Reports the number of logical and physical I/O operations for a query, helping identify high I/O costs.
+```sql
+set statistics io on
+SELECT * FROM my_table
+```
+**Statistics Time**:
+-   Measures query execution time, useful for benchmarking.
+```sql
+set statistics time on
+SELECT * FROM my_table
+```
+**sp_sysmon**:
+-   Generates a detailed performance report for the server, including cache hit ratios, lock contention, and I/O statistics.
+```sql
+sp_sysmon '00:01:00'  -- Monitor for 1 minute
+```
+**Monitoring Tables (MDA Tables)**:
+- In ASE 15.0+, use Monitoring and Diagnostics (MDA) tables like `monSysStatement`, `monProcessSQLText`, and `monTableStatistics` to analyze query performance in real time:
+```sql
+SELECT StatementID, CPU, WaitTime FROM master..monSysStatement
+```
+**sp_helpindex**:
+-   Lists indexes on a table to verify their structure and usage.
+```sql
+sp_helpindex 'my_table'
+```
+**Query Tuning Commands**:
+- Use `OPTIMIZE FOR` hints to influence query plans:
+```sql
+SELECT * FROM my_table (INDEX idx_my_index) WHERE column1 = 'value'	
+```
+- Adjust isolation levels to balance performance and consistency:
+```sql
+SET TRANSACTION ISOLATION LEVEL 1
+```
+**DBCC Commands**:
+- Use **dbcc traceon(3604)** with **dbcc sqltext** to debug query plans:
+```sql
+dbcc traceon(3604)
+dbcc sqltext
+```
+>   SAP provides tools like **SQL Anywhere Profiler** or third-party tools like **DBArtisan** for advanced query analysis and tuning.
+
+## 3. Can you explain the significance of update statistics in Sybase?
+The UPDATE STATISTICS command in Sybase ASE refreshes metadata about table and index data distributions, which the query optimizer uses to generate efficient execution plans. Its significance includes:
+-   **Accurate Query Plans**:
+    -   Statistics provide the optimizer with data distribution (e.g., histograms, density) for columns and indexes, ensuring optimal index selection and join strategies.
+    -   Outdated statistics can lead to poor plans, such as table scans instead of index seeks.
+-   **Performance Improvement**:
+    -   Updated statistics help the optimizer choose the fastest execution path, reducing query execution time and resource usage.
+-   **Handling Data Changes**:
+    -   After significant data modifications (e.g., bulk inserts, updates, or deletes), statistics become stale, degrading performance. Regular updates maintain accuracy.
+ 
+ #### Running Update Statistics
+ **Table-Level Statistics**:
+ Updates statistics for all columns in a table:
+```sql
+UPDATE STATISTICS my_table
+```
+**Column-Level Statistics**:
+Updates statistics for a specific column:
+```sql
+UPDATE STATISTICS my_table (column_name)
+```
+**Index Statistics**:
+Updates statistics for a specific index:
+```sql
+UPDATE STATISTICS my_table index_name
+```
+
+**Sampling**:
+Use sampling to reduce runtime for large tables:
+```sql
+UPDATE STATISTICS my_table WITH SAMPLING = 20
+```
+> Run `UPDATE STATISTICS` after significant data changes (e.g., >10% of rows modified).
+> Schedule regular updates for frequently modified tables.
+> Use `sp_monitor` or MDA tables to identify tables with outdated statistics.
+> Combine with index maintenance (`REORG`) for optimal performance.
+
+## 4. How do you monitor and manage memory allocation in Sybase?
+### Monitoring Memory Allocation
+Sybase ASE manages memory through a shared memory pool, divided into data caches, procedure caches, and other structures. 
+**sp_configure**:
+- Displays memory-related configuration parameters:
+```sql
+sp_configure 'total logical memory'
+sp_configure 'procedure cache size'
+```
+**sp_monitorconfig**:
+- Shows memory usage and cache hit ratios:
+```sql
+sp_monitorconfig 'all'
+```
+**MDA Tables**:
+- Query `monDataCache` for cache usage and hit ratios:
+```sql
+SELECT CacheName, CacheSize, UsedPages, HitRatio FROM master..monDataCache
+```
+**sp_sysmon**:
+- Reports cache hit ratios, memory usage, and I/O performance:
+```sql
+sp_sysmon '00:01:00'
+```
+### Managing Memory Allocation
+**Configure Total Memory**:
+- Set the total memory available to ASE:
+```sql
+sp_configure 'max memory', 1048576  -- 1GB in 2KB pages
+```
+**Adjust Procedure Cache**:
+- Allocate memory for stored procedures and query plans:
+```sql
+sp_configure 'procedure cache size', 50000  -- In 2KB pages	
+```
+**Create Named Caches**:
+- Allocate specific caches for hot tables or indexes to improve performance: 
+```sql
+sp_cacheconfig 'my_cache', '100M', 'mixed'
+sp_bindcache 'my_cache', 'my_database', 'my_table'
+```
+**Optimize Cache Usage**:
+-  Increase cache hit ratios by binding frequently accessed objects to dedicated caches.
+- Use `sp_helpcache` to view cache configurations.
+
+**Tune Buffer Pools**:
+- Configure buffer pools within caches for specific I/O sizes (e.g., 2K, 16K):
+```sql
+sp_poolconfig 'default data cache', '50M', '16K'
+```
+>  Monitor cache hit ratios (aim for >90% for data caches).
+>  Allocate sufficient memory for procedure cache to avoid recompilation.
+>  Separate data and log caches to reduce I/O contention.
+
+## 5. What is index covering, and how does it improve query performance?
+
+Index covering occurs when a non-clustered index contains all the columns required by a query, allowing the query to be satisfied entirely from the index without accessing the underlying table data. This is also called a **covering index**.
+
+**Index covering** occurs when all the columns required by a query are present in the index itself — so **no need to access the data pages** of the table.
+
+**How It Works**:
+-   A non-clustered index stores the indexed columns and a pointer to the table’s data. If the index includes all columns referenced in the SELECT, WHERE, JOIN, or ORDER BY clauses, the optimizer can retrieve data directly from the index.
+```sql
+CREATE NONCLUSTERED INDEX idx_cover ON employees(emp_id, last_name, dept_id)
+SELECT emp_id, last_name FROM employees WHERE dept_id = 10
+```
+Example:
+Table: `sales(order_id, customer_id, amount, order_date)`
+If you create:
+```sql
+create index idx_sales on sales(customer_id, amount)
+```
+
+Then:
+```sql
+select customer_id, amount from sales where customer_id = 123
+```
+✔️ Will be covered by the index (faster lookup, fewer I/Os).
+
+#### How It Improves Performance
+-   **Reduced I/O**: Accessing only the index (a smaller structure) instead of the table data reduces disk I/O and memory usage.
+-   **Faster Query Execution**: Fewer page accesses lead to quicker response times.
+-   **Optimized Resource Usage**: Minimizes CPU and memory overhead by avoiding table data lookups.
