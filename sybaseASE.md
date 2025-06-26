@@ -94,15 +94,6 @@ CREATE  PROCEDURE sp_get_employee (@emp_id INT) AS  BEGIN  SELECT  *  FROM emplo
  BEGIN TRANSACTION UPDATE employees SET salary =  80000  WHERE emp_id =  1  IF @@ERROR  =  0  COMMIT TRANSACTION ELSE  ROLLBACK TRANSACTION`
   ```
 
-### 4.  **Learning and Using Sybase**
-
-#### **Best Practices**
-
--   **Indexing**: Create indexes on frequently queried columns, but avoid over-indexing to prevent performance degradation.
--   **Transaction Management**: Use transactions for critical operations to ensure data integrity.
--   **Backup**: Regularly use `DUMP DATABASE` and `DUMP TRANSACTION` for backups.
--   **Performance Tuning**: Monitor query plans using `SET SHOWPLAN ON` and optimize slow queries.
-
 #### **Common Tools**
 
 -   **isql**: Command-line tool for executing SQL queries.
@@ -110,13 +101,29 @@ CREATE  PROCEDURE sp_get_employee (@emp_id INT) AS  BEGIN  SELECT  *  FROM emplo
 -   **DBArtisan**: Third-party GUI for database administration.
 -   **ODBC/JDBC Drivers**: For connecting applications to Sybase.
 
-### 5. Default system databases in Sybase
+### 4. Default system databases in Sybase
+System databases are predefined databases created automatically during the installation of a Sybase server. 
 - **master** : stores system configuration information. Its primary role is to manage and control the operation of the Sybase ASE server and all other databases within it.
+        -   **Note**: Always back up the master database, as its corruption can render the server inoperable.
 - **model** : serves as a template for creating new user databases.
 - **tempdb** : Used for temporary storage of data.
 - **sybsystemdb** : Manages distributed transaction information.
-- **sybsystemprocs** : Contains system stored procedures used for administrative tasks.
+- **sybsystemprocs** : Stores system stored procedures (e.g., `sp_help`, `sp_configure`) used for administrative tasks.
+-   **sybsecurity** (optional):
+    -   Used for auditing purposes when the auditing feature is enabled.
 
+### 5. Default system tables in Sybase
+System tables are special tables within each database (primarily in the **master** database and other system databases) that store metadata about the database and server. They are automatically maintained by the Sybase server and provide information about the database structure, objects, and configurations.
+-   **Location**: System tables exist in every database but are most critical in the **master** database, where they store server-wide metadata.
+-   **Access**: Users can query system tables (read-only) to retrieve metadata, but they should not be modified directly unless explicitly instructed by Sybase documentation or support.
+-   **Examples of System Tables**:
+    -   **sysdatabases** (in master): Lists all databases on the server, including their names, IDs, and creation details.
+    -   **sysobjects**: Lists all objects (tables, views, stored procedures, etc.) within a database.
+    -   **sysusers**: Contains information about users and their permissions in a database.
+    -   **syscolumns**: Stores details about columns in tables and views.
+    -   **sysindexes**: Tracks indexes defined on tables.
+    -   **syslogins** (in master): Stores information about server login accounts.
+    -   **sysconfigures** (in master): Contains server configuration parameters.
 ### 6.  Sybase Transaction Management
 Sybase (SAP ASE) handles **transaction management** using standard **ACID** (Atomicity, Consistency, Isolation, Durability) principles, ensuring data integrity in multi-user environments. Here's how it works in detail:
 
@@ -634,3 +641,4 @@ select customer_id, amount from sales where customer_id = 123
 -   **Reduced I/O**: Accessing only the index (a smaller structure) instead of the table data reduces disk I/O and memory usage.
 -   **Faster Query Execution**: Fewer page accesses lead to quicker response times.
 -   **Optimized Resource Usage**: Minimizes CPU and memory overhead by avoiding table data lookups.
+
