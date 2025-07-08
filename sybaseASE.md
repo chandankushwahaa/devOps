@@ -4,6 +4,7 @@
 2. [Database Design](#2-database-design-and-management)
 3. [Performance Tuning and Optimization](#performance-tuning-and-optimization)
 4. [Initializing Database Devices in sybase ASE](#4-initializing-database-devices-in-sybase-ase)
+5. [Maintenance](#5-maintenance)
 
 
 
@@ -758,3 +759,107 @@ disk resize name = "testdev", size = "4M"
 >**Why should you back up the master database after running `disk init`?**
 
  **Answer**: Backing up the `master` database ensures recovery is possible if it gets damaged, as `disk init` modifies the `master..sysdevices` table, which is critical for system configuration.
+
+
+ ## 5. Maintenance
+ ### 1. `UPDATE STATISTICS`
+Refreshes the database's **knowledge about the data** in a table or index so that queries run faster.
+
+### **How it works internally:**
+
+-   Takes a **sample of data** from the table.
+
+-   Checks how data is **distributed** (e.g., which values are common).
+    
+-   Builds a **histogram** (frequency chart).
+    
+-   Stores the result in **system tables** (`sysstatistics`).
+    
+-   The **query optimizer** uses this to make smarter decisions.
+
+### 2. `CC CHECK STORAGE` (Command: `dbcc checkstorage`)
+A **full health check** of the database to find any **corruption** or **inconsistencies** in data pages, indexes, and allocations.
+Use regularly or when DB is unstable
+
+### **How it works internally:**
+
+-   Reads all data pages, index pages, and allocation maps.
+    
+-   Compares expected values with actual data.
+    
+-   Logs **any errors or corruption** found in a results database.
+    
+-   You review the result to fix issues.
+
+### 3. `REORG` (Reorganize Table or Index)
+**Rearranges and cleans up** rows and pages to reduce internal fragmentation and improve performance.
+`REORG` **cleans and reorders** them for faster access.
+
+### **How it works internally:**
+
+-   Moves **scattered rows** into the correct order.
+    
+-   Fills **partially empty pages** to save space.
+    
+-   Optionally, **compacts** or **rebuilds indexes** depending on the type of `REORG`.
+    
+-   Keeps the table more **efficiently organized**.
+    
+
+ **Types:**
+
+-   `reorg rebuild index` — Rebuilds index from scratch. -- You remove all books, clean shelves, re-place books.
+    
+-   `reorg compact` — Releases unused space inside data pages. -- Compress clothes to save wardrobe space
+    
+-   `reorg forward_row` — Fixes out-of-order row storage. -- Moves scattered clothes into drawers
+
+### 4. `REBUILD` (Index Rebuild)
+**Recreates the entire index** from scratch to remove fragmentation and improve speed.
+Use when indexes are fragmented.
+
+### **How it works internally:**
+
+-   Drops the old index (internally).
+    
+-   Reads all table data again.
+    
+-   Builds a **new, perfectly organized index**.
+    
+-   Replaces the old one with the new one.
+
+### 5. Database Backups
+A **copy** of your database data (and optionally logs), saved to a file — so you can **restore it later** if anything goes wrong.
+
+**TYPES:-**
+1. Full Backup: Saves the entire database
+```
+-- Full Database Backup
+dump database mydb to "/sybase_backups/mydb_full.dmp"
+```
+2. Transaction Log Backup: Saves all changes since last backup
+```
+-- Backup only changes (for point-in-time recovery)
+dump transaction mydb to "/sybase_backups/mydb_log_01.trn"
+```
+**Restore Scenario (Disaster Recovery)**
+Step 1: Load the Full Backup
+```sql
+-- Restore the full backup (with NORECOVERY to apply logs later)
+load database mydb from "/sybase_backups/mydb_full.dmp"
+```
+Step 2: Load the Transaction Log
+```sql
+-- Restore transaction log to get latest data
+load transaction mydb from "/sybase_backups/mydb_log_01.trn"
+```
+Step 3 (Optional): Load more logs if you have more log backups
+```sql
+-- Repeat for additional logs
+load transaction mydb from "/sybase_backups/mydb_log_02.trn"
+```
+Final Step: Bring Database Online
+```sql
+-- Finish recovery and bring the DB online
+online database mydb
+```
