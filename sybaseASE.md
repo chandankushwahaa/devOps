@@ -11,7 +11,7 @@
 ## **1. Overview**
 - **Sybase**: A software company founded in 1984, known for its relational database management system (RDBMS), Sybase Adaptive Server Enterprise (ASE), and other data management tools. Acquired by SAP in 2010, Sybase now primarily refers to its database and middleware products under SAP's umbrella.
 -   **Sybase ASE**: A traditional RDBMS optimized for high-performance transactional workloads, competing with Oracle Database and Microsoft SQL Server. It uses a client-server architecture and supports SQL.
-- **Sybase ASE** is a client-server RDBMS designed for scalability, high performance, and reliability. It supports structured query language (SQL) for data manipulation and management, with additional features like stored procedures, triggers, and advanced transaction control. It competes with databases like Oracle, Microsoft SQL Server, and IBM DB2.
+
 -   **Sybase ASE** is known for low-latency transaction processing, often used in financial systems (e.g., trading platforms).
 
 ### Key Features:
@@ -134,13 +134,13 @@ In Sybase ASE, transactions can be either:
 -   **Implicit Transactions** (auto-managed by the server)
     
 -   **Explicit Transactions** (manually controlled using `BEGIN TRAN`, `COMMIT`, `ROLLBACK`)
-- ####  Explicit Transaction Example:
-```sql
-BEGIN TRANSACTION
-    UPDATE accounts SET balance = balance - 500 WHERE id = 1
-    UPDATE accounts SET balance = balance + 500 WHERE id = 2
-COMMIT
-```
+-  Explicit Transaction Example:
+    ```sql
+    BEGIN TRANSACTION
+        UPDATE accounts SET balance = balance - 500 WHERE id = 1
+        UPDATE accounts SET balance = balance + 500 WHERE id = 2
+    COMMIT
+    ```
 
 ### 2. **Transaction Isolation Levels**
 Sybase supports multiple **isolation levels** (as per SQL standards), which control how data is read or locked during transactions:
@@ -160,7 +160,6 @@ Sybase uses **page-level** and **row-level locking** for concurrency control. It
 -   Shared Locks: For reads.
 -   Exclusive Locks: For writes/updates.
 -   Intent Locks: Indicate future locks needed at lower levels.
-- 
 ### 4. **Durability and Recovery**
 
 Sybase uses a **transaction log (syslogs)** to ensure durability. All transaction steps are recorded here.
@@ -273,18 +272,7 @@ CREATE NONCLUSTERED INDEX idx_comp ON employees(dept_id, hire_date)
 ```sql
 CREATE NONCLUSTERED INDEX idx_upper_name ON employees(UPPER(last_name))
 ```
-#### Impact on Performance
 
--   **Benefits**:
-    -   **Faster Reads**: Indexes speed up SELECT queries, especially for WHERE, JOIN, and ORDER BY.
-    -   **Clustered Indexes**: Optimize range queries and sequential access due to physical data ordering.
-    -   **Non-Clustered Indexes**: Improve point queries and searches on non-ordered columns.
-    -   **Covering Indexes**: Include all columns needed by a query, reducing disk I/O.
--   **Drawbacks**:
-    -   **Slower Writes**: Indexes increase overhead for INSERT, UPDATE, and DELETE operations, as the index must be updated.
-    -   **Storage Overhead**: Indexes consume additional disk space.
-    -   **Maintenance**: Indexes require periodic rebuilding (REORG) to maintain performance, especially after heavy data modifications.
-    -   **Query Optimizer Dependency**: Poorly designed indexes or outdated statistics can lead to suboptimal query plans.
 
 ### 🔹 3. **Locking in Sybase and Its Types**
 Locking in Sybase ASE ensures data consistency during concurrent transactions by restricting access to data being modified. It prevents issues like dirty reads, lost updates, and non-repeatable reads, aligning with transaction isolation levels.
@@ -310,18 +298,7 @@ Sybase ASE uses several lock types, primarily at the **page**, **row**, or **tab
 4.  **Intent Lock**:
     -   Indicates a transaction’s intent to lock a resource at a lower granularity (e.g., table-level intent lock for row-level locking).
     -   Ensures hierarchical locking consistency (e.g., table → page → row).
-#### Locking Granularity
 
--   **Row-Level Locking**: Locks individual rows, minimizing contention for concurrent transactions.
--   **Page-Level Locking**: Locks an entire data page (default in older versions or specific configurations).
--   **Table-Level Locking**: Locks the entire table, used for operations like CREATE INDEX or when explicitly requested.
--   Configured via sp_configure or table-level options (LOCK TABLE).
-
-#### Impact on Performance
-
--   **Concurrency**: Row-level locking improves concurrency but increases overhead. Page-level locking is less granular but faster for bulk operations.
--   **Deadlocks**: Occur when transactions wait for each other’s locks. Sybase detects and resolves deadlocks by rolling back one transaction.
--   **Isolation Levels**: Higher isolation levels (e.g., Level 3) use more restrictive locking, reducing concurrency but ensuring data consistency.
 
 >Use `sp_who` to view active transactions and `sp_lock` to inspect locks.
 ```sql
@@ -348,11 +325,7 @@ DUMP TRANSACTION my_database TO '/path/to/backup/my_database_log.dmp'
 ```sql
 DUMP DATABASE my_database TO '/path/to/backup/my_database_cumulative.dmp' WITH CUMULATIVE
 ```
-**Best Practices**:
--   Schedule regular full and transaction log backups.
--   Store backups on separate storage for safety.
--   Use sp_helpdb to verify database backup eligibility.
-- 
+
 #### Database Restores
 The `LOAD` command restores databases or transaction logs from backup files.
 1. **Restore a Database**:
@@ -373,11 +346,7 @@ After loading, bring the database online:
 ```sql
 ONLINE DATABASE my_database
 ```
-**Best Practices**:
--   Test backups regularly to ensure restorability.
--   Verify backup files with `sp_dbcc_verifybackup`.
--   Document the restore sequence for disaster recovery.
-- 
+
 ### 🔹 5. **Transaction Log Purpose and Management**
 #### Purpose of the Transaction Log
 The transaction log in Sybase ASE is a system table (stored in the database’s log segment) that records all data modifications `(INSERT, UPDATE, DELETE)` to ensure durability and support recovery.
@@ -523,44 +492,7 @@ dbcc sqltext
 ```
 >   SAP provides tools like **SQL Anywhere Profiler** or third-party tools like **DBArtisan** for advanced query analysis and tuning.
 
-## 3. Can you explain the significance of update statistics in Sybase?
-The UPDATE STATISTICS command in Sybase ASE refreshes metadata about table and index data distributions, which the query optimizer uses to generate efficient execution plans. Its significance includes:
--   **Accurate Query Plans**:
-    -   Statistics provide the optimizer with data distribution (e.g., histograms, density) for columns and indexes, ensuring optimal index selection and join strategies.
-    -   Outdated statistics can lead to poor plans, such as table scans instead of index seeks.
--   **Performance Improvement**:
-    -   Updated statistics help the optimizer choose the fastest execution path, reducing query execution time and resource usage.
--   **Handling Data Changes**:
-    -   After significant data modifications (e.g., bulk inserts, updates, or deletes), statistics become stale, degrading performance. Regular updates maintain accuracy.
- 
- #### Running Update Statistics
- **Table-Level Statistics**:
- Updates statistics for all columns in a table:
-```sql
-UPDATE STATISTICS my_table
-```
-**Column-Level Statistics**:
-Updates statistics for a specific column:
-```sql
-UPDATE STATISTICS my_table (column_name)
-```
-**Index Statistics**:
-Updates statistics for a specific index:
-```sql
-UPDATE STATISTICS my_table index_name
-```
-
-**Sampling**:
-Use sampling to reduce runtime for large tables:
-```sql
-UPDATE STATISTICS my_table WITH SAMPLING = 20
-```
-> Run `UPDATE STATISTICS` after significant data changes (e.g., >10% of rows modified).
-> Schedule regular updates for frequently modified tables.
-> Use `sp_monitor` or MDA tables to identify tables with outdated statistics.
-> Combine with index maintenance (`REORG`) for optimal performance.
-
-## 4. How do you monitor and manage memory allocation in Sybase?
+## 3. How do you monitor and manage memory allocation in Sybase?
 ### Monitoring Memory Allocation
 Sybase ASE manages memory through a shared memory pool, divided into data caches, procedure caches, and other structures. 
 **sp_configure**:
