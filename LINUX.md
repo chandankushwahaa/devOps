@@ -1,5 +1,7 @@
 # LINUX
 Linux is a family of open-source Unix-like operating systems, based on the Linux kernel, a computer program that manages the system's hardware and software.
+
+S kernel that is used in a distribution, but most people just refer to it as an OS.
 > 90% of application runs on **Linux**.
 
 **Unix** is a proprietary (requiring a license for use), multitasking operating system, e.g. macOS, Debian. While **Linux** is a free and open-source, Unix-like operating system. e.g. Ubuntu, Kali Linux
