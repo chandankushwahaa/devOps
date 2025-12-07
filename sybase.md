@@ -97,5 +97,11 @@ SET ROWCOUNT 0
 
 ## 5. LOGIN ID CREATION
 A system security officer creates a login account for a new user. A system administrator or database owner adds a user to database or assign a user to a group.
+
+A locked ID means a user account is temporarily disabled and cannot log in to Sybase ASE.
 - **select name from syslogins** : all users who can connect to the Sybase ASE server
 - **select name from master..syslogins**
+-  **sp_locklogin** : list locked login id's
+- **select name, status from master..syslogins** : it will show name and status. status 0 means unlocked and other than 0 means id is locked.
+- **sp_locklogin < USERNAME>, "unlock"** : this will unlock the lock id. 
+- **sp_locklogin < USERNAME>, "lock"** : this will lock the unlock id.
