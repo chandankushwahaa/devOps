@@ -1,4 +1,13 @@
 # SYBASE ASE 
+
+LEARN
+
+1. how to check isolation level:-
+    - select @@maxpagesize
+    - select @@isolation
+2. 
+
+
 ## 1. Sybase Devices
 - This device initially stores the master, model, tempdb and sybsystemdb system databases.
 -  All of these databases except for master can be moved or expanded off the master device.
@@ -105,3 +114,35 @@ A locked ID means a user account is temporarily disabled and cannot log in to Sy
 - **select name, status from master..syslogins** : it will show name and status. status 0 means unlocked and other than 0 means id is locked.
 - **sp_locklogin < USERNAME>, "unlock"** : this will unlock the lock id. 
 - **sp_locklogin < USERNAME>, "lock"** : this will lock the unlock id.
+
+
+
+## 6. Sybase System roles
+|Role|Fuction  |
+|--|--|
+|sa_role  |perform system administration. |
+|sso_role  |perform security administration  |
+|oper_role  |perform operator function(can perform dumps and load)  |
+|replication_role  |used by replication process  |
+|sybase_ts_role  |used to perform undocumented maintenance tasks  |
+|dtm_tm_role  |used in externally coordinated XA transactions  |
+|ha_role  |controls high availability(HA) companion server actions  |
+|mon_role  |provide access to monitoring tables  |
+|js_admin_role  |allows for administration of the job scheduler  |
+|js_client_role  |execute job scheduler task  |
+|messaging_role  |administers and executes real-timemessaging  |
+|web_services  |administers web services  |
+
+**sa_role**
+- installing SYBASE ASE
+- creating and managing ASE login accounts.
+- Granting roles and permissions to ASE users.
+- managing and monitoring the use of disk space, memory and connections
+- can perform dump and load for database.
+- can configuring sybase ASE to achieve the best performace by using `sp_configure`, `sp_sysmon`
+**sso_role**
+- system security officer- All security-related tasks such as:-
+- create/remove server login(sp_addlogin, sp_droplogin) 
+- reset password for account (`sp_password`)
+- lock/unlock Sybase ASE login
+- create user defined role and grant/revoke permission.
