@@ -1,3 +1,9 @@
+Content
+1. [Linux](#linux)
+2. [Basic Command](#1-basic-commands)
+3. [Linux Volume Mnagement](#linux-volume-management)
+4. [Vi/Vim Editor](#vivim-text-editor)
+
 # LINUX
 Linux is a family of open-source Unix-like operating systems, based on the Linux kernel, a computer program that manages the system's hardware and software.
 
@@ -305,3 +311,6 @@ By using LVM with AWS EBS, you can dynamically allocate storage, resize volumes,
 -   **Dynamic resizing:**  Easily resize logical volumes as data grows.
 -   **Snapshots:**  Create snapshots of volumes to back up data or test changes without risk. 
 -   **Better utilization of space:**  Combine multiple EBS volumes to form a single logical volume.
+
+
+## Vi/Vim Text Editor

@@ -1,4 +1,86 @@
-# Postgress SQL
+# 1. PostgreSQL
+- PostgreSQL is an open-source ORDBMS.
+
+## Key Features
+1. **ACID Compliance**: Four properties of ACID(automicity, consistency, isolation and durability) to make sure that database transactions are handled reliably.
+2. **Concurrency Control**: Postgres offers multi-version concurrency control(MVCC), which enables concurrent access to the same data by serveral transactions without conflicts.
+3. **Community-driven development**: Postgres is an open-source project with a large, active community, which contribute to the development and maintenance of the database.
+4. **Extensibility**: The database supports a wide range of data types and can be easily extended with custom functions, operators and aggreates.
+5. **Replication and high availability**: Postgres supports both synchronous and asynchronous replication and provides serverl tools forarchieving high availability.
+6. **SQL compliance**: Postgres is compliant with the SQL standard which ensures it is easy to use for developers and analysts familiar with SQL.
+## PostgreSQL Limits
+|Items|Upper Limit | Description  |
+|--|--| -- |
+| Database Size | Unlimited | |
+| Number of Databases | 4,294,950,911 | |
+| Relations(Tables) per database | 1,431,650,303 | |
+| Relation Size | 32TB | Default BLCKSZ of 8192 bytes |
+| Rows per table | Limites by the number of tuples that can fit onto 4,294,967,295 pages  | |
+| Columns per table | 1600 | |
+| Field size | 1GB | |
+| Identifier length | 63 bytes | |
+| Indexes per table | Unlimited | Contraned by maximum relations per database |
+| Columns per index | 32 | |
+| Partition keys | 32 | |
+
+# 2. Architecture 
+- It is an ORDBMS based on client and server architecture.
+- It consits of postgres server process, backgroung processes, backend process, memory structures and data files which constitutes an instance.
+- It uses "Process per-user" client/server model.
+- Program run by clients connect to the server instance and request read and write operations.
+- Default port of PostgreSQL is **5432**.
+## Process and Memory Architecture
+![](/images/1postgresArchitecture.jpg)
+
+## Postmaster Process / Master Postgres Process
+- The postgres process is the first process started when you start postgreSQL.
+- postgres server process is the parent of all processes related to database cluster management.
+- Postgres process acts as supervisor process, whose job is to monitor, start, restart some processes if they die.
+- It acts a listener and receive new connection request from the client.
+- Authentication and Authorization of all incoming request is taken care by postgres process.
+- It is responsible for performing recovery, initialize shared memory, and run background processes.
+- It's also responsible for spawing backend process when there is a connection request from the client process.
+- To Check processes and there process ID: 	
+	- Windows: *goto taskmanager --> click details --> search for postgres.exe*
+	- Linux: *ps -ef | grep postgres**
+
+## Background Processes
+|Process| Description|
+| -- | -- |
+|Check Pointer|Ensure that all the dirty buffers created up to a certain point are sent to disk so that the WAL up to that point can be recycled.|
+|Autovacuum launcher|It is the responsibility of the autovacuum daemon to carry vacuum operations on bloated tables.|
+|Archiver|When in archive log mode, copy the WAL file to the specified directory|
+|Logger|Write the error message to the log file.|
+|Writer|Periodically writes the special dirty buffer to a file.|
+|Wal Writer|Write the WAL to the WAL file.|
+
+## Memmory Components
+|Shared Buffer|Wal Buffer|
+|--|--|
+|Determines how much memory is dedicated to postgreSQL to use for caching data.|Determmine the memory used to WAL data that has not yet been written to disk.|
+|Primary objective is to minimize DISK IO.|This WAL data is the metadata information about changes to the acutal data and is sufficient to reconstruct actual data during database recovery opertaions|
+|Frequently used blocks must be in the buffer for as long as possible|Wal buffer are flushed from the buffer area to wal segments by wal writer.|
+|It is controlled by parameter named shared_buffer located in `postgresql.conf` file.|It is controlled by the `wal_buffers` parameter.|
+|Default values is 128MB|Default values is 16MB|
+
+## Local Memory(Backend Process)
+|Process|Description|
+|--|--|
+|Work_Mem|Space used for sorting, bitmap operations, hash joins and merge joins. The default setting is 4 MB|
+|Temp_buffers|These are session-local buffers used only for access to temporary tables. The default setting is 8MB|
+|Maintenance_work_mem|Space used for vacuum and CREATE INDEX. The default setting is 64MB|
+
+## Physical Files
+|||
+|--|--|
+|Data Files|file which is used to store data|
+|Wal files|Write ahead log file, where all transactions are recorded before the data is written to the data files.|
+|Log files|All server messages incluing stderr, csvlog and syslog are logged in log files|
+|Archive Logs(Optional)|Wal files which are copied to the archive location|
+
+# 3. Storage Internals
+
+
 
 
 
