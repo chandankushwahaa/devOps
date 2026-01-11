@@ -78,7 +78,87 @@
 |Log files|All server messages incluing stderr, csvlog and syslog are logged in log files|
 |Archive Logs(Optional)|Wal files which are copied to the archive location|
 
-# 3. Storage Internals
+
+#  3. Storage Internals
+### Pages
+- It is the fixed length block of data.
+- Every table and index is stored as an array of pages of fixed size. 
+- All the data in the database resides in pages.
+- By default, the page in 8KB in size.
+- We can configure different page size during compiling the server. 
+- Pages are smallest unit of data storage.
+![]()
+**Page Layout Description**
+
+|Items| Description |
+|--|--|
+| PageHeader Data | 24 Bytes Long, contains general information about the page, including free space pointers |
+|ItemIdData|Array of pairs pointing to the actual items, 4 Bytes per item.|
+|Free Space|The unallocated space, new item pointers are allocated from the start of this area, new items from the end|
+|Tuple|The actual item themselves|
+|Special Space|Index access method specific data. Different methods store different data. Empty is ordinary tables|
+
+## Rows 
+- To accommodate rows into the pages we need to see size of row, datatypes & size of fields and amount of data.
+### Segment
+-  Made of multiple pages. 1GB in size.
+- When a table or index exceeds 1GB it is divided into gigabyte sized segments.
+- The segment size can be adjusted using the configuration option with segsize when building  postgreSQL.
+### Toast
+- TOAST(The oversized-Attribute Storage Technique) mechanism to handle very large rows that don't fir into a standard page.
+- Handle large rows, automatic handling.
+- Toasting breaks up the data into smaller parts across multiple pages.
+
+# 4. Database Cluster
+- Database cluster is a collection of databases that is managed by a single instance on a sever.
+- Initdb creates a new PostgreSQL database cluster.
+- Creating a database cluster consists of creating the directions in which the data is store. We call this ths *data directory*.
+- Popluar Location of Data Directory:-
+	- Linux : /var/lib/pgsql/data
+
+**Initdb utility**
+- initdb must be run as the user that will own the server process.
+- initdb is not needed for windows environment
+- there are two way to initialize database.
+	- `initdb -D /usr/local/pgsql/data`
+	- `pg_ctl -D /usr/local/pgsql/data initdb`
+	- -D : data directory location
+	- -W : we can use this option to force the super user to provide password before initialize db.
+### Start/Stop Cluster
+- Start Cluster Syntax:
+	- Windows : pg_ctl –D  “C:\Program Files\PostgreSQL\version\data” start
+	- Windows : Services.msc > Start Postgresql-version
+	- Linux : pg_ctl –D  /var/lib/pgsql/data  start
+	- Linux Central Tool : systemctl start postgresql-<version>
+- Stop Cluster Syntax:-
+	- Windows : pg_ctl -D “C:\Program Files\PostgreSQL\<version>\data” stop
+	- Windows : Services.msc > Stop Postgresql-version.
+	- Linux : pg_ctl –D  /var/lib/pgsql/data  stop
+	- Linux Central Tool : systemctl stop postgresql-<version>
+**NOTE:** `pg_ctl stop -m shutdown mode`
+### Reload\Restart Cluster
+- Syntax for Reload of Cluster:
+	- Windows/Linux: pg_ctl reload
+	- Linux Central Tool : systemctl reload postgresql-<version>
+
+- Syntax for Restart of Cluster:
+	- Windows/Linux: pg_ctl restart
+	- Linux Central Tool : systemctl restart postgresql-<version>
+
+- Psql Command line: 
+	- `SQL : SELECT pg_reload_conf();` (Irrespective of Env)
+	
+### `pg_ctl` Commands
+- Find status of postgresql cluster.
+	- `pg_ctl status`
+
+- How to register Postgresql as system service in Windows.
+	- `pg_ctl  register [-D datadir] [-N servicename]  [-S a[uto]`
+
+- How to unregister Postgresql as system service in Windows.
+	- `pg_ctl  unregister [-N servicename]`
+
+	
 
 
 
