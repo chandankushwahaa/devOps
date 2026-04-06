@@ -15,6 +15,7 @@
 - Container monitoring
 - Security monitoring
 - Synthetic monitoring
+
 **Most Integrations:-**
 - OS -> Windows, Linux, Mac
 - Cloud -> AWS, Azure, GCP
@@ -22,8 +23,7 @@
 - Messaging Services -> Kafka, Apache active MQ, hive MQ
 - Security -> Alcide, Apptrail, Okta, Hashicorp vault.
 
--> Was founded in year 2010 by Olivier Pomel
--> Datadog's agent code is open-sourced on Github.
+> Was founded in year 2010 by Olivier Pomel. Datadog's agent code is open-sourced on Github.
 
 ### Monitoring tool Requirements:-
 - Data collection
@@ -34,7 +34,7 @@
 - Integration & Extensibility 
 - Security and Access Control
 
-**Alternative: Prometheus, InfluxDb, Nagios, Sensu, Dynatrace, Graphite, New relic**
+**Alternative For Datadog: Prometheus, InfluxDb, Nagios, Sensu, Dynatrace, Graphite, New relic**
 
 ## Basic Terminologies
 1. **HOST:** it is an entity which datadog has to monitor. example. servers, VMs, containers, IOT devices, Desktops, etc.
@@ -57,11 +57,12 @@
 ![](./images/datadog/1_datadog_architecture.png)
 
 Host the client side and the datadog backend side. Host is a datadog agent which is a lightweight software which runs on host. 
-Datadog agent is the core of data monitoring solution as it is responsible for collecting the events, matrics and logs from the host and sending them to data backend to which users interact and based on the requirements the metrics can be filtered, grouped and converted to dashboards.
-So basically we can say agent as middle layer between the host and the data lock software, which is hosted on cloud.
-Datadog agent is comprised of 2 component the **collector** and **forwarder**. Collector is in charge of running checks and collection metrics from the hosts. It gathers all the standard metrics every 15secs and the forwarder takes the payloads from the collector and sends it to datadog over HTTPS this is via internet using port **443**. And also to optimize the communication there is a **buffer ** attached to the forwarder.
-When a certain limit in size or number of outstanding send requests are reached in the buffer, they are released to datadog backend.
+Datadog agent is the core of data monitoring solution as it is responsible for collecting the events, matrics and logs from the host and sending them to data backend to which users interact and based on the requirements the metrics can be filtered, grouped and converted to dashboards.So basically we can say agent as middle layer between the host and the data lock software, which is hosted on cloud.
+
+Datadog agent is comprised of 2 component the **collector** and **forwarder**. Collector is in charge of running checks and collection metrics from the hosts. It gathers all the standard metrics every 15secs and the forwarder takes the payloads from the collector and sends it to datadog over HTTPS this is via internet using port **443**. And also to optimize the communication there is a **buffer** attached to the forwarder. When a certain limit in size or number of outstanding send requests are reached in the buffer, they are released to datadog backend.
+
 Datadog agent can be a **dogStatsD** the service as well as it is optional. **DogstatsD** an implementation of statsD protocol is a metrics aggregation service bundled with the datadog agent to send custom metrics from your application to datadog backend.
+
 **HOW DogstatsD works:** If we have python application or java or any other instrumented application then dogstatsD accepts custom metrics, events and service checks over UDP periodically aggregates them and ultimately forwards them to datadog. Now since it uses UDP your application can send metrics to datastatsDX and resume its work without waiting for a response.
 NOW there are 3 more optional processes that can be spawned by the agent if enabled in the configuration file. 1st is the **IPM agent**, which is a process to collect traces, and the 2nd is **Process Agent** which is a process to collect live process information by default it only collects available containers otherwise it is disabled. 3rd is **UI Agent** this is the UI side of datadog agent. To see the details of datadog agent in UI, then there is option of its UI component which runs directly on the host where the datadog agent is running.
 TO view the datadog agent's UI you have to configure the port on which the GUI should run in the datadog yml file. For windows and Mac the UI is already enabled by default and it runs on PORT 5002.
@@ -89,9 +90,9 @@ The main configuration file is: `C\ProgramData\Datadog\datadog.yaml`
 
 For monitoring services, a good practice is to monitor the RED metrics (Rate, errors, and duration).
 
-1. Rate: Monitor the number of requests your service receives.
-2. Errors: Track how many of those requests fail.
-3. Duration: Measure how long those requests take (latency).
+1. **Rate:** Monitor the number of requests your service receives.
+2. **Errors:** Track how many of those requests fail.
+3. **Duration:** Measure how long those requests take (latency).
 
 **Here are examples of Datadog monitors types you can create to monitor your services:**
 
@@ -102,7 +103,7 @@ For monitoring services, a good practice is to monitor the RED metrics (Rate, er
 - **Real User Monitoring:** Observe user behavior and monitor frontend performance.
 - **Synthetic Monitoring:** Simulate user actions to test API endpoints or website functionality.
 - **Anomaly**: Detect anomalous behavior for a metric based on historical data.
--**Cloud Network Monitoring:** Monitor cloud-specific network configurations and traffic.
+- **Cloud Network Monitoring:** Monitor cloud-specific network configurations and traffic.
 
 
 
@@ -121,11 +122,11 @@ Datadog tagging binds metric, traces, and logs under one name thereby allowing f
 Datadog live processes gives real-time visibility into the processes running on your infrastructure. Datadog automatically collects and passes all of your processes across your on-prem hybrid or cloud native infrastructure in real-time.
 `Infrastructure --> Processes:` Here we can view all of our running processes in one place. In this view it includes two graphs, time series and scatterplot graph.
 
-`Infrastructure Monitoring- Container`: Container are lightweight packages of software that contain all of the necessary elements to run in any environment. It virtualize the operating system and runs anywhere from a private data center to the public cloud.
+`Infrastructure Monitoring --> Container`: Container are lightweight packages of software that contain all of the necessary elements to run in any environment. It virtualize the operating system and runs anywhere from a private data center to the public cloud.
 
 ### METRICS
 Information(the data numbers) pertaining to your system captured at a certain point in time. Metric is time-bound and its value will change.
-Example: app.latency [3.34, 22:11:01] in 11 at night the latency is 3.34.
+Example: `app.latency [3.34, 22:11:01]` in 11 at night the latency is 3.34.
 
 **Metric sources:-**
 
@@ -147,14 +148,14 @@ Example: app.latency [3.34, 22:11:01] in 11 at night the latency is 3.34.
 Affects how the metric values are displayed when queried, as well as the associated graphing possibilities. Metric's type determines how the values collected by the agent are aggregated for submission over a particular time interval.
 
 1. **Count**: Count metrics measure the total number of events within a specific period. They are represented as integers.
-Example: users.active_users [1,2,1,4,1,1,5,1] --> users.active_users [16]
+Example: `users.active_users [1,2,1,4,1,1,5,1]` --> users.active_users [16]
 
 2. **Rate**: Rate metrics measure the number of events occurring per second during a given time interval. They track the frequency of events over time, rather than their cumulative count. Rates are represented as integers.
 Rate total count in the interval/length of the time interval
-Example: users.active_users [1,2,1,4,1,1,5,1] --> users.active_users [1.6]
+Example: `users.active_users [1,2,1,4,1,1,5,1]` --> users.active_users [1.6]
 
 3. **Gauge**: Gauge metrics represent the last value received during the specific time period. Think of it as reading a speedometer in a vehicle, or your thermostat at home; it's an instantaneous value.
-Example: system.temperature [71,71,71,71,71,71.5] --> system.temperature [71.5]
+Example: `system.temperature [71,71,71,71,71,71.5]` --> system.temperature [71.5]
 
 4. **Histogram**: Histogram metrics capture the statistical distribution of a set of values over a period of time. This depicts how frequently values fall into different ranges.
 
@@ -166,6 +167,7 @@ SEEE LECTURE AND TAKE SS 8.2
 The agent aggregates multiple data points for each unique metric into a single data point over a period of time called the flash interval, which for dogstatsD if of 10 seconds. The agent combines these values into a single representative metric value for that interval while assigning a single timestamp to it. And now this aggregated value with a single timestamp is sent to data servers for further aggregations.
 
 **Metrics Summary:** It shows all the metrics reporting across your infrastructure under a specified time frame.
+
 **Metrics Explorer:** It is a basic interface for examining your metrics in datadog. We can view the basic graph per metric here.
 
 ### CUSTOM METRICS - AGENT CHECK
