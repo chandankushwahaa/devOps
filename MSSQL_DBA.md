@@ -7,7 +7,37 @@
 
 ## 1. Database Fundamentals and Design
 
-### Key
+**Data**: Data is a collection of facts, such as numbers, words, observation. e.x- name, age, weight, etc. **Base**: System, Foundation, Hub, Central Location
+
+**Database**: A database is an organized and systematic collection of data generally stored and accessed electronically from computer system.
+
+**TABLE**:
+
+ - Relational database system contains one or more objects called
+   tables.
+ - The data or information for the database are stored in these tables.
+ - Tables are uniquely identified by their names.
+
+**COLUMN:**
+- Column is a set of data values, all of a single type, in a table.
+- Columns define the data in a table.
+- Maximum no of Columns in SQL server is 1024.
+- Maximum no of Columns in MYSQL is 1024.
+- Table need at least one column
+- Field Column
+- Field is the intersection of a row and a column.
+
+**ROW:**
+- A row is a collection of fields that makeup a record.
+- A now is also called record.
+- A table can contain 0 or more rows. When there are zero, it said to be empty table.
+
+![](./images/MSSQL/0_rowColumn.png)
+
+**KEY:** 
+- A key is a data ites that exclusively identifies a record.
+- Key can be single attribute of a group of attribute. 
+- Key are also used to generate relationship among different database tables.
 
 ![](./images/MSSQL/1_keys.png)
 
