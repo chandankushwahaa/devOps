@@ -53,6 +53,17 @@
 3. **Events:** It happens at infrequent occurrences that usually provides the details of a change that happened in the system.
 4. **Agent:** It is a service that runs alongside the application software system/host to collect various events and metrics from it and sends it to the datadog backend via internet.
 
+
+**Monitoring** is the process of gathering data to understand what's going in inside of your infrastructure.
+
+**Observability** is taking the same data that you've collected and moving beyond "What is happing?" to why is it happening?"
+
+**Log**: A log is a computer generated file that contains information regarding the usage of a system. This gives you insight into the behavior of the resource.
+
+**APM**: Datadog Application Performance Monitoring (APM or tracing) provides you with deep insight into your application's performance side by side with your logs and infrastructure monitoring.
+
+**Dashboards**: Dashboards contain graphs with real-time performance metrics, unifying your view of data across metrics, logs, traces, and more
+
 ### Architecture
 ![](./images/datadog/1_datadog_architecture.png)
 
