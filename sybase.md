@@ -1,11 +1,29 @@
 # SYBASE ASE 
 
 LEARN
-
 1. how to check isolation level:-
     - select @@maxpagesize
     - select @@isolation
-2. 
+2. Executing Queries
+```sql
+<FILENAME.bat> <SERVERNAME> <DATABASENAME> sysadmin <PASSWORD>
+isql -Usysadmin -P***** -D<DB_NAME> -S<SERVERNAME> -i<INPUTFILENAME.sql> -o<OUTPUTFILENAME.txt>
+```
+
+### Sybase Basics:-
+
+We have general IDs:-
+1. sybdba : to perform basic activities.
+2. sybase: to perform all major activities like software installation, licence renewal, etc. is done using sybase.
+3. `/sybase/ase16sp04pl07/ASE-16_0` : we have all sybase related information.
+4. `SYSAM-2.0` : inside this we have all details of sybase licences.
+
+Important Files: `SYBASE.sh`, `SYBASE.csh`, `SYBASE.env`
+`ls -la` : list all hidden files, `SYBASE.sh` responsible for executing all the sybase related command.
+
+`pwd`
+`/home/sybdba/etc`: inside this we can see which database we have to  configured.
+`cat FullDB_env.cfg`: in this we can see database name that is configured for backup
 
 
 ## 1. Sybase Devices
@@ -53,68 +71,147 @@ LEARN
 - The master db cannot be expanded off of the master device.
 > `select name,vdevno from master..sysdevices` :  learn this 
 
-## 2. DROP DATABASE
-- **sp_helpdb** : it will list all the databases.
-- **sp_helpdb testdb** : assume we want to delete testdb databse. It will list the db details and all device associated with it.
-- **drop database testdb** : this will give error because we have to kill the processess who is use this db.
-- **sp_who** : list the process which is using testdb database. copy spid and paste in below command.
-- kill <PASTE_SPID> : this will kill the process.
-- **drop database testdb**: now this will delete the testdb database.
-- **sp_helpdb testdb**:  It throws db not found.
-NEXT YOU CAN DELETE THE DEVICES ASSOCIATED WITH THAT TESTDB.
-## 3. DATABASE CREATION
+## 2. DATABASE CREATION
 Before creating new database we have to create new device.
-- **disk init name='datadev01', physname='/sybase/data1/datadev01.dat', size='500M'**
-- **go** : this will create new data device
-- **sp_helpdevice datadev01** : verify device has been created or not.
-- **disk init name='logdev01', '/sybase/data1/logdev01', size='100M'**
-- go
-- **sp_helpdevice logdev01**
-NOW WE CREATE DATABASE
-- **create database testdb on datadev01="500M"**
-- **log on logdev01="100M"**
-- **go** : This will create new database on the above devices.
-- **sp_helpdb testdb** : 
 
-## 4. TABLE CREATION
-- **sp_helpdb**
-- **use testdb** : assuming testdb a database
-- **go**
--
 ```sql
-create emp{
+-- allocating db space  HOSTNAME: like USALUSTG001
+disk init
+name='tst_db_data1',
+physname='/sybase/<HOSTNAME>/data1/tst_db_data1.dat',
+size='300M'
+go
+```
+```sql
+-- allocating log
+disk init
+name='tst_db_log1',
+physname='/sybase/<HOSTNAME>/tlog1/tst_db_log1.dat',
+size='200M'
+go
+```
+
+```sql
+-- This will create new database
+create database tst_db on tst_db_data1 = '300M' log on tst_db_log1 = '200M'
+go
+```
+
+### Adding Space in Existing Database
+```sql
+sp_helpdevice DB_NAME
+go -- follow the devie name sequence if last device is data002 the create new device with data003
+```
+```sql
+disk  init
+name='tst_db_data1',
+physname='/sybase/<HOSTNAME>/data1/tst_db_data1.dat',
+size='10G'
+go
+```
+>NOTE: sometime after running the above if we get error like: " The maximum number 150 of configured devices has been reached. Please reconfigured 'number of devices' to larger  value."
+```sql
+sp_configure 'number of devices', 300
+go -- this will changed the value from 150 to 300. means we can add upto 300 device in the current database.
+```
+```sql
+-- TO verify the device that we have initlize 
+select name from sysdevices where name like 'tst_db_data%' 
+```
+```sql
+alter database tst_db on tst_db_data1 = "10G"
+go -- this will take some time dependin upon the size 
+```
+### ADDING LOGS
+```sql
+-- allocating db space HOSTNAME: like USALUSTG001
+disk  init
+name='tst_db_data1',
+physname='/sybase/<HOSTNAME>/tlogs1/tst_db_log1.dat',
+size='10G'
+go
+alter database tst_db on tst_db_data1 = "10G"
+go
+```
+## 4. TABLE CREATION
+```sql
+sp_helpdb -- list all dbs
+sp_helpdb tst_db 
+```
+
+```sql
+sp_help -- to check all the tables
+-- creating user table
+create table table1(a int, b int)
+```
+```sql
+use tst_db
+go
+create emp{ -- create user table
 num INT,
 name CHAR(20)
 }
+go
+select * from emp
+go
+sp_help emp  -- to view table details
+
 ```
-- **go**
-- **select * from emp**
-- **go**
-- **sp_help emp**
--
 ```sql
 insert into emp values(1, "CK")
-```
-- **go**
--
-```sql
+go
 -- view first 10 rows
 SET ROWCOUNT 10
 SELECT * FROM emp
 SET ROWCOUNT 0
 ```
+### Adding Space in Current User Database
+
+
+## 3. DROP DATABASE
+- **sp_helpdb** : it will list all the databases.
+- **sp_helpdb tst_db** : assume we want to delete testdb databse. It will list the db details and all device associated with it.
+- **drop database tst_db** : this will give error because we have to kill the processess who is use this db.
+- **sp_who** : list the process which is using testdb database. copy spid and paste in below command.
+- **kill <PASTE_SPID>** : this will kill the process.
+- **drop database testdb**: now this will delete the testdb database. But device inside db is not dropped so we have to drop the devices
+- **sp_dropdevice tst_db_data1** : we have to drop all the device associated with the database.
+- **sp_helpdevice tst_db** : to  check all the devices
+- **sp_helpdb tstdb**:  It throws db not found.
+
+We have to delete some files which is created when we created new device this will delete from sysprocesses and sysusers db's.
+- `rm /sybase/<HOSTNAME>/data1/tst_db_data1.dat`
+- `rm /sybase/<HOSTNAME>/tlogs1/tst_db_log1.dat`
 
 ## 5. LOGIN ID CREATION
 A system security officer creates a login account for a new user. A system administrator or database owner adds a user to database or assign a user to a group.
 
-A locked ID means a user account is temporarily disabled and cannot log in to Sybase ASE.
-- **select name from syslogins** : all users who can connect to the Sybase ASE server
-- **select name from master..syslogins**
--  **sp_locklogin** : list locked login id's
-- **select name, status from master..syslogins** : it will show name and status. status 0 means unlocked and other than 0 means id is locked.
-- **sp_locklogin < USERNAME>, "unlock"** : this will unlock the lock id. 
-- **sp_locklogin < USERNAME>, "lock"** : this will lock the unlock id.
+**Creating New Login With Same SUID in Primary, Reporting and DR Server:-**
+1. Before adding SUID we have to check the last SUID on the server then add +1. ex. if SUID is 331 then for new account creation we have to put 332.
 
+```sql
+select max(suid) from master..syslogins -- run in primary server
+```
+
+2. Run the below in master db first in primary then reporting and at last DR server.
+```sql
+create login chandann with password Chandan@12345 suid 332 fullname "Chandan Kushwaha" password expiration 90 min password length 8 max failed attempts 10
+```
+3. Now add user in Primary
+```sql
+use <DB_NAME>
+sp_adduser chandann, chandann, <GROUP_NAME>
+```
+4. Verify in Reporting and DR server
+```sql
+use <DB_NAME>
+sp_helpuser chandann -- without any error
+```
+5. Now Lock the user in Primary Server
+```sql
+sp_locklogin chandann, "lock"
+sp_displaylogin chandann -- to verify login is locked
+```
 
 
 ## 6. Sybase System roles
@@ -146,3 +243,11 @@ A locked ID means a user account is temporarily disabled and cannot log in to Sy
 - reset password for account (`sp_password`)
 - lock/unlock Sybase ASE login
 - create user defined role and grant/revoke permission.
+
+
+
+
+
+
+
+
