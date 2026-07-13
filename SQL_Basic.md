@@ -1,5 +1,14 @@
 
-# VIEW
+INDEX:-
+![Advanced SQL Techniques]()
+
+# Advanced SQL Techniques
+
+## 1. Subqueries
+
+## 2. CTE
+
+## 3. VIEW
 It is a virtual table that shows data without storing it physically. In order to see the data, we have to execute the query behind the view.
 
 ### Database Structure
@@ -140,7 +149,7 @@ CREATE VIEW V_Monthly_Summary AS
 )
 ```
 
-# STORE PROCEDURE
+## 5. STORE PROCEDURE
 A **Stored Procedure** in SQL is a **precompiled collection of one or more SQL statements** that is stored in the database and can be executed whenever needed.
 
 We have to perform , 1. `INSERT`, 2. `UPDATE`, 3.`SELECT`  query which is keep repeating to get the data everyday which is bit time confusing and we might cause human error. So, that's why we have STORE PROCEDURES in SQL. 
@@ -163,6 +172,9 @@ EXEC ProcedureName
 
 -- TO DROP
 DROP PROCEDURE <ProcedureName>
+
+-- TO make Change in existing Stored proc.
+CREATE OR ALTER PROCEDURE ...
 ```
 ### Example
 ```sql
@@ -201,3 +213,96 @@ END
 EXEC GetCustomerSummaryWithPara @Country = 'Germany'
 EXEC GetCustomerSummaryWithPara @Country = 'USA'
 ```
+
+### Multi-Queries Stored Procedure
+
+```sql
+CREATE PROCEDURE GetCustomerSummaryWithMultiQuery @Country NVARCHAR(50) = 'USA'
+AS
+BEGIN
+	SELECT COUNT(*) TotalCustomers,
+	AVG(Score) AvgScore
+	FROM Sales.Customers
+	WHERE Country = @Country; -- add semicolon at the end of every query 
+
+-- Total no. of Orders and Total Sales
+    SELECT
+    COUNT(OrderID) TotalOrders,
+    SUM(Sales) TotalSales
+    FROM Sales.Orders o
+    JOIN Sales.Customers c
+    ON c.CustomerID = o.CustomerID
+    WHERE c.Country = @Country;
+END
+
+-- TO RUn the above stored proc.
+EXEC GetCustomerSummaryWithMultiQuery
+```
+
+### Variable in Stored Procedure
+```sql
+CREATE PROCEDURE GetCustomerSummaryWithVariables @Country NVARCHAR(50) = 'USA'
+AS
+BEGIN
+
+DECLARE @TotalCustomers INT, @AvgScore FLOAT;
+	SELECT 
+        @TotalCustomers = COUNT(*) ,
+	    @AvgScore = AVG(Score) 
+	FROM Sales.Customers
+	WHERE Country = @Country
+
+    PRINT 'Total Customer from '+@Country+ ': ' + CAST(@TotalCustomers AS NVARCHAR);
+    PRINT 'Average Score from '+@Country+ ': ' + CAST(@AvgScore AS NVARCHAR) 
+END
+
+-- To Run the above stored proc.
+EXEC GetCustomerSummaryWithVariables
+EXEC GetCustomerSummaryWithVariables @Country = 'Germany'
+/*OUTPUT:
+Total Customer from Germany:2
+Average Score from Germany:425
+*/
+```
+
+## 6. Triggers
+A trigger in SQL is a special type of stored program that automatically executes (fires) when a specified event occurs on a table or view. Triggers are commonly used to enforce business rules, maintain audit logs, or automatically update related data.
+
+Suppose we have Employees Table and each time we insert the data into Employees we automatically inserting data inside logs using triggers.
+
+**TYPES**
+ - **DML Trigger** : INSERT, UPDATE, DELETE
+	 - **AFTER**: Runs After Event 	
+	 - **INSTEAD OF**: Runs during event
+ - **DDL Triggers**: CREATE, ALTER, DROP
+ - **LOGGON**
+
+ ```sql
+-- 1. CREATE LOG Table
+CREATE TABLE Sales.EmployeeLogs (
+	LogID INT IDENTITY(1,1) PRIMARY KEY,
+	EmployeeID INT,
+	LogMessage VARCHAR(255),
+	LogDate DATE
+)
+
+-- 2. Create Trigger on Employees Table
+CREATE TRIGGER trg_AfterInsertEmployee ON Sales.Employees
+AFTER INSERT
+AS
+BEGIN
+	INSERT INTO Sales.EmployeeLogs (EmployeeID, LogMessage, LogDate)
+	SELECT
+		EmployeeID,
+		'New Employee Added =' + CAST(EmployeeID AS varchar),
+		GETDATE()
+	FROM INSERTED -- virtual copy that holds a copy of the rows that are being inserted into the target table
+END
+
+-- 3. Insert New Data Into Employees and Verify
+SELECT * FROM Sales.Employees; -- check total number of rows 
+
+INSERT INTO Sales.Employees VALUES (6, 'Chandan', 'Kushwaha', 'IT', '2001-05-22', 'M', 50000, 3);
+
+SELECT * FROM Sales.EmployeeLogs;  -- verify the log table
+ ```
