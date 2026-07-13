@@ -1,13 +1,4 @@
-# Sybase
-
-1. [Overview](#1-overview)
-2. [Database Design](#2-database-design-and-management)
-3. [Performance Tuning and Optimization](#performance-tuning-and-optimization)
-4. [Initializing Database Devices in sybase ASE](#4-initializing-database-devices-in-sybase-ase)
-5. [Maintenance](#5-maintenance)
-
-
-
+# SYBASE ASE 
 ## **1. Overview**
 - **Sybase**: A software company founded in 1984, known for its relational database management system (RDBMS), Sybase Adaptive Server Enterprise (ASE), and other data management tools. Acquired by SAP in 2010, Sybase now primarily refers to its database and middleware products under SAP's umbrella.
 -   **Sybase ASE**: A traditional RDBMS optimized for high-performance transactional workloads, competing with Oracle Database and Microsoft SQL Server. It uses a client-server architecture and supports SQL.
@@ -75,685 +66,255 @@ System databases are predefined databases created automatically during the insta
 - **sybsystemprocs** : Stores system stored procedures (e.g., `sp_help`, `sp_configure`) used for administrative tasks.
 -   **sybsecurity** (optional):
     -   Used for auditing purposes when the auditing feature is enabled.
+		
+LEARN
+1. how to check isolation level:-
+    - select @@maxpagesize
+    - select @@isolation
+2. Executing Queries
+```sql
+<FILENAME.bat> <SERVERNAME> <DATABASENAME> sysadmin <PASSWORD>
+isql -Usysadmin -P***** -D<DB_NAME> -S<SERVERNAME> -i<INPUTFILENAME.sql> -o<OUTPUTFILENAME.txt>
+```
 
-### 4. Default system tables in Sybase
-System tables are special tables within each database (primarily in the **master** database and other system databases) that store metadata about the database and server. They are automatically maintained by the Sybase server and provide information about the database structure, objects, and configurations.
--   **Location**: System tables exist in every database but are most critical in the **master** database, where they store server-wide metadata.
--   **Access**: Users can query system tables (read-only) to retrieve metadata, but they should not be modified directly unless explicitly instructed by Sybase documentation or support.
--   **Examples of System Tables**:
-    -   **sysdatabases** (in master): Lists all databases on the server, including their names, IDs, and creation details.
-    -   **sysobjects**: Lists all objects (tables, views, stored procedures, etc.) within a database.
-    -   **sysusers**: Contains information about users and their permissions in a database.
-    -   **syscolumns**: Stores details about columns in tables and views.
-    -   **sysindexes**: Tracks indexes defined on tables.
-    -   **syslogins** (in master): Stores information about server login accounts.
-    -   **sysconfigures** (in master): Contains server configuration parameters.
-### 5.  Sybase Transaction Management
-Sybase (SAP ASE) handles **transaction management** using standard **ACID** (Atomicity, Consistency, Isolation, Durability) principles, ensuring data integrity in multi-user environments. Here's how it works in detail:
+### Sybase Basics:-
 
-###  1. **Transaction Control**
-In Sybase ASE, transactions can be either:
--   **Implicit Transactions** (auto-managed by the server)
-    
--   **Explicit Transactions** (manually controlled using `BEGIN TRAN`, `COMMIT`, `ROLLBACK`)
--  Explicit Transaction Example:
-    ```sql
-    BEGIN TRANSACTION
-        UPDATE accounts SET balance = balance - 500 WHERE id = 1
-        UPDATE accounts SET balance = balance + 500 WHERE id = 2
-    COMMIT
-    ```
+We have general IDs:-
+1. sybdba : to perform basic activities.
+2. sybase: to perform all major activities like software installation, licence renewal, etc. is done using sybase.
+3. `/sybase/ase16sp04pl07/ASE-16_0` : we have all sybase related information.
+4. `SYSAM-2.0` : inside this we have all details of sybase licences.
 
-### 2. **Transaction Isolation Levels**
-Sybase supports multiple **isolation levels** (as per SQL standards), which control how data is read or locked during transactions:
-|Level	| Description  |
+Important Files: `SYBASE.sh`, `SYBASE.csh`, `SYBASE.env`
+`ls -la` : list all hidden files, `SYBASE.sh` responsible for executing all the sybase related command.
+
+`pwd`
+`/home/sybdba/etc`: inside this we can see which database we have to  configured.
+`cat FullDB_env.cfg`: in this we can see database name that is configured for backup
+
+
+## 1. Sybase Devices
+- This device initially stores the master, model, tempdb and sybsystemdb system databases.
+-  All of these databases except for master can be moved or expanded off the master device.
+-  `sp_helpdevice master` : checking master device information
+- `sp_helpdevice sysprocsdev` : checking device information
+- `sysdevices` is the system table that records each device. It exists only in the master database.
+- ```select * from sysdevices```
+### DROPPING DEVICES
+- ```sp_dropdevice LOGICAL_DEVICE_NAME```
+- WHEN WE DROP DEVICE	
+	- When we need to change, repair,or add hardware.
+	- When we need to change the size of a device
+- TO DO THIS, WE NEED TO DROP AND RECREATE THE DEVICE
+	- We must remove all databases from a device before you can drop it.
+	- `sp_dropdevice` does not delete device files from the OS. 
+	- Device cannot be droped when in use.
+	- Drop the database and then drop the device
+		- ```drop database test```
+		- ```go```
+		- ```sp_helpdb test```
+		- ```go``` -- This gives error because db is dropped.
+		- ```sp_dropdevice datatest02```
+		- ```go``` -- Device Dropped
+		- ```sp_helpdevice datatest02```
+		- ```go``` -- Gives error because device is dropped
+		- AFTER THIS REMOVE THE FILES FROM FILE SYSTEM
+		- cd /home/chandan/syb/data
+		- ls -lrt
+		- rm datatest02.dat
+		- rm logtest02.dat  
+- DISK RESIZE (Assume datatest02 is a new device)
+	- `sp_helpdevice datatest02`
+	- `disk resize name = 'datatest02' , size='100M'`
+	- `go`
+	- ```sp_helpdevice datatest02``` : check size 
+### DISK DEFAULT
+- When a database is created, you can specify the device on which it should be created.
+- A default device is a device on which a database is created when no device has been specified.
+- If there is no default device and you attempt to create a db without specifying a device, the command will fail.
+### The master Device
+- The master device is a default device named during installtion.
+- It contains master,model,tempdb,and sybsystemdb database.
+- The master db cannot be expanded off of the master device.
+> `select name,vdevno from master..sysdevices` :  learn this 
+
+## 2. DATABASE CREATION
+Before creating new database we have to create new device.
+
+```sql
+-- allocating db space  HOSTNAME: like USALUSTG001
+disk init
+name='tst_db_data1',
+physname='/sybase/<HOSTNAME>/data1/tst_db_data1.dat',
+size='300M'
+go
+```
+```sql
+-- allocating log
+disk init
+name='tst_db_log1',
+physname='/sybase/<HOSTNAME>/tlog1/tst_db_log1.dat',
+size='200M'
+go
+```
+
+```sql
+-- This will create new database
+create database tst_db on tst_db_data1 = '300M' log on tst_db_log1 = '200M'
+go
+```
+
+### Adding Space in Existing Database
+```sql
+sp_helpdevice DB_NAME
+go -- follow the devie name sequence if last device is data002 the create new device with data003
+```
+```sql
+disk  init
+name='tst_db_data1',
+physname='/sybase/<HOSTNAME>/data1/tst_db_data1.dat',
+size='10G'
+go
+```
+>NOTE: sometime after running the above if we get error like: " The maximum number 150 of configured devices has been reached. Please reconfigured 'number of devices' to larger  value."
+```sql
+sp_configure 'number of devices', 300
+go -- this will changed the value from 150 to 300. means we can add upto 300 device in the current database.
+```
+```sql
+-- TO verify the device that we have initlize 
+select name from sysdevices where name like 'tst_db_data%' 
+```
+```sql
+alter database tst_db on tst_db_data1 = "10G"
+go -- this will take some time dependin upon the size 
+```
+### ADDING LOGS
+```sql
+-- allocating db space HOSTNAME: like USALUSTG001
+disk  init
+name='tst_db_data1',
+physname='/sybase/<HOSTNAME>/tlogs1/tst_db_log1.dat',
+size='10G'
+go
+alter database tst_db on tst_db_data1 = "10G"
+go
+```
+## 4. TABLE CREATION
+```sql
+sp_helpdb -- list all dbs
+sp_helpdb tst_db 
+```
+
+```sql
+sp_help -- to check all the tables
+-- creating user table
+create table table1(a int, b int)
+```
+```sql
+use tst_db
+go
+create emp{ -- create user table
+num INT,
+name CHAR(20)
+}
+go
+select * from emp
+go
+sp_help emp  -- to view table details
+
+```
+```sql
+insert into emp values(1, "CK")
+go
+-- view first 10 rows
+SET ROWCOUNT 10
+SELECT * FROM emp
+SET ROWCOUNT 0
+```
+### Adding Space in Current User Database
+
+
+## 3. DROP DATABASE
+- **sp_helpdb** : it will list all the databases.
+- **sp_helpdb tst_db** : assume we want to delete testdb databse. It will list the db details and all device associated with it.
+- **drop database tst_db** : this will give error because we have to kill the processess who is use this db.
+- **sp_who** : list the process which is using testdb database. copy spid and paste in below command.
+- **kill <PASTE_SPID>** : this will kill the process.
+- **drop database testdb**: now this will delete the testdb database. But device inside db is not dropped so we have to drop the devices
+- **sp_dropdevice tst_db_data1** : we have to drop all the device associated with the database.
+- **sp_helpdevice tst_db** : to  check all the devices
+- **sp_helpdb tstdb**:  It throws db not found.
+
+We have to delete some files which is created when we created new device this will delete from sysprocesses and sysusers db's.
+- `rm /sybase/<HOSTNAME>/data1/tst_db_data1.dat`
+- `rm /sybase/<HOSTNAME>/tlogs1/tst_db_log1.dat`
+
+## 5. LOGIN ID CREATION
+A system security officer creates a login account for a new user. A system administrator or database owner adds a user to database or assign a user to a group.
+
+**Creating New Login With Same SUID in Primary, Reporting and DR Server:-**
+1. Before adding SUID we have to check the last SUID on the server then add +1. ex. if SUID is 331 then for new account creation we have to put 332.
+
+```sql
+select max(suid) from master..syslogins -- run in primary server
+```
+
+2. Run the below in master db first in primary then reporting and at last DR server.
+```sql
+create login chandann with password Chandan@12345 suid 332 fullname "Chandan Kushwaha" password expiration 90 min password length 8 max failed attempts 10
+```
+3. Now add user in Primary
+```sql
+use <DB_NAME>
+sp_adduser chandann, chandann, <GROUP_NAME>
+```
+4. Verify in Reporting and DR server
+```sql
+use <DB_NAME>
+sp_helpuser chandann -- without any error
+```
+5. Now Lock the user in Primary Server
+```sql
+sp_locklogin chandann, "lock"
+sp_displaylogin chandann -- to verify login is locked
+```
+
+
+## 6. Sybase System roles
+|Role|Fuction  |
 |--|--|
-| READ UNCOMMITTED | allows dirty reads |
-| READ COMMITTED | prevents dirty reads |
-| REPEATABLE READ | prevents non-repeatable reads |
-| SERIALIZABLE | prevents phantom rows |
+|sa_role  |perform system administration. |
+|sso_role  |perform security administration  |
+|oper_role  |perform operator function(can perform dumps and load)  |
+|replication_role  |used by replication process  |
+|sybase_ts_role  |used to perform undocumented maintenance tasks  |
+|dtm_tm_role  |used in externally coordinated XA transactions  |
+|ha_role  |controls high availability(HA) companion server actions  |
+|mon_role  |provide access to monitoring tables  |
+|js_admin_role  |allows for administration of the job scheduler  |
+|js_client_role  |execute job scheduler task  |
+|messaging_role  |administers and executes real-timemessaging  |
+|web_services  |administers web services  |
 
-```sql
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-```
-### 3. **Locking Mechanism**
-Sybase uses **page-level** and **row-level locking** for concurrency control. It automatically locks the necessary resources during a transaction, based on isolation level and access type.
+**sa_role**
+- installing SYBASE ASE
+- creating and managing ASE login accounts.
+- Granting roles and permissions to ASE users.
+- managing and monitoring the use of disk space, memory and connections
+- can perform dump and load for database.
+- can configuring sybase ASE to achieve the best performace by using `sp_configure`, `sp_sysmon`
+**sso_role**
+- system security officer- All security-related tasks such as:-
+- create/remove server login(sp_addlogin, sp_droplogin) 
+- reset password for account (`sp_password`)
+- lock/unlock Sybase ASE login
+- create user defined role and grant/revoke permission.
 
--   Shared Locks: For reads.
--   Exclusive Locks: For writes/updates.
--   Intent Locks: Indicate future locks needed at lower levels.
-### 4. **Durability and Recovery**
 
-Sybase uses a **transaction log (syslogs)** to ensure durability. All transaction steps are recorded here.
 
--   On **COMMIT**: Log is flushed to disk.
--   On **ROLLBACK**: Changes are undone using the log.
--   On **crash recovery**: Sybase replays or rolls back transactions from the log.
 
-### 5. **Savepoints**
-Sybase supports `SAVE TRAN` for partial rollbacks within a transaction:
-```sql
-BEGIN TRANSACTION
-    UPDATE table1 ...
-    SAVE TRAN mySave
-    UPDATE table2 ...
-    ROLLBACK TRANSACTION mySave
-COMMIT
 
-```
 
 
-## 2. Database Design and Management
 
-### 🔹 1. Creating and Managing Users in Sybase
-
-In Sybase ASE, users are managed at two levels: **server-level logins** (for accessing the server) and **database-level users** (for accessing specific databases).
-#### 1.  Creating Users
-1. **Create a Server Login**:
--   Use the `sp_addlogin` stored procedure to create a login.
-```sql
-sp_addlogin 'username', 'password', 'default_database', 'default_language', 'fullname'
-```
--   username: Login name.
--   password: Password for the login.
--   default_database: Database the user connects to by default (e.g., master).
--   default_language: Optional language setting.
--   fullname: Optional full name for the user.
-
-2. **Create a Database User**:
-    -   After creating a login, add the user to a specific database using `sp_adduser`.
-    -   Example:
- ```sql
-USE my_database sp_adduser 'username', 'user_alias', 'group_name'
-```  
-  - user_alias: Optional alias for the user within the database.
-  -   group_name: Optional group for role-based access (if applicable).
-        
-3.   **Grant Permissions**:
--   Assign permissions using `GRANT` (e.g., SELECT, INSERT, EXECUTE) or roles.  
--   Example:
-  ```sql
- GRANT  SELECT  ON my_table TO username 
- GRANT sa_role TO username -- Assigns system administrator role
- ```
- 
-#### 4.  **Managing Users**
--   **Modify Login**:
-    -   Use `sp_modifylogin` to update login properties (e.g., password, default database).
-    -   Example:
-       ```sql
-       sp_modifylogin 'username', 'passwd', 'new_password'
-       ```
-        
--   **Drop Login/User**:
-    -   Remove a login with `sp_droplogin` (must drop user from all databases first).
-    -   Remove a database user with `sp_dropuser`.
-    -   Example:
-        ```sql
-        sp_dropuser 'username'  -- From a specific database  
-        sp_droplogin 'username'  -- From the server
-        ```
-        
--   **Monitor Users**:
-    -   View logins: `SELECT * FROM master..syslogins`
-    -   View database users: `SELECT * FROM sysusers` (in the specific database).
--   **Roles**:
-    -   Sybase supports predefined roles (e.g., sa_role, sso_role) and custom roles.
-    -   Create a role: CREATE ROLE my_role
-    -   Assign a role: GRANT ROLE my_role TO username
-
-### 🔹 2. Types of indexes in Sybase, and how do they impact performance?
-
-1. **Clustered Index** :
-	- Physically sorts and stores the table’s data in the order of the index key.
-	-   Only one clustered index per table (as it dictates physical data order).
-	-   Best for: Range queries, joins, and queries with `ORDER BY` on the indexed column.
-	```sql
-	CREATE CLUSTERED INDEX idx_emp_id ON employees(emp_id)
-	```
-2. **Non-Clustered Index** :
-	-  Stores a separate structure with pointers to the actual data, leaving the table’s physical order unchanged.
-	-   Multiple non-clustered indexes are allowed per table.
-	-   Best for: Point queries, selective WHERE clauses, and covering queries.
-	```sql
-	CREATE NONCLUSTERED INDEX idx_emp_name ON employees(last_name)
-	```
-3. **Unique Index** :
-	-   Ensures no duplicate values in the indexed column(s).
-	-   Can be clustered or non-clustered.
-```sql
-CREATE  UNIQUE NONCLUSTERED INDEX idx_unique_email ON employees(email)
-```
-4. **Composite Index** :
-	-   Indexes multiple columns together, useful for queries involving multiple columns in WHERE, JOIN, or ORDER BY.
-```sql
-CREATE NONCLUSTERED INDEX idx_comp ON employees(dept_id, hire_date)
-```
-5. **Function-Based Index** :
-	-   Indexes the result of a function or expression, useful for queries with computed values.
-```sql
-CREATE NONCLUSTERED INDEX idx_upper_name ON employees(UPPER(last_name))
-```
-
-
-### 🔹 3. **Locking in Sybase and Its Types**
-Locking in Sybase ASE ensures data consistency during concurrent transactions by restricting access to data being modified. It prevents issues like dirty reads, lost updates, and non-repeatable reads, aligning with transaction isolation levels.
-
-#### Types of Locks :-
-Sybase ASE uses several lock types, primarily at the **page**, **row**, or **table** level:
-
-1.  **Shared Lock (S)**:
-	- For read operations. Others can read, but not write.
-    -   Acquired during SELECT operations to allow multiple transactions to read the same data.
-    -   Prevents concurrent writes but allows concurrent reads.
-    -   Example: A SELECT query locks a page/row to ensure stable data during reading.
-2.  **Exclusive Lock (X)**:
-	- For write operations. Blocks others.
-    -   Acquired during INSERT, UPDATE, or DELETE operations.
-    -   Prevents other transactions from reading or modifying the locked data until the transaction completes.
-    -   Example: An UPDATE query locks the affected rows exclusively.
-3.  **Update Lock (U)**:
-	- Used during potential writes to avoid deadlocks.
-    -   A hybrid lock used during the initial phase of an UPDATE operation.
-    -   Allows concurrent reads but prevents other updates, converting to an exclusive lock when the data is modified.
-    -   Reduces deadlocks in complex transactions.
-4.  **Intent Lock**:
-    -   Indicates a transaction’s intent to lock a resource at a lower granularity (e.g., table-level intent lock for row-level locking).
-    -   Ensures hierarchical locking consistency (e.g., table → page → row).
-
-
->Use `sp_who` to view active transactions and `sp_lock` to inspect locks.
-```sql
-SELECT  *  FROM master..syslocks
-```
-
-### 🔹  4. **Performing Backups and Restores**
-#### Database Backups
-Sybase ASE uses the `DUMP` command to back up databases and transaction logs. Backups are critical for recovery and should include both the database and its transaction log.
-
-1. **Full Database Backup**:
--   Backs up the entire database, including data and log.
-	```sql
-	DUMP DATABASE my_database TO '/path/to/backup/my_database.dmp'
-	```
-2. **Transaction Log Backup**:
--   Backs up the transaction log for point-in-time recovery.
--   Requires the database to have a separate log segment and trunc log on chkpt disabled.
-```sql
-DUMP TRANSACTION my_database TO '/path/to/backup/my_database_log.dmp'
-```
-4. **Cumulative Backup** (Sybase ASE 15.7+):
--   Backs up all changes since the last full backup.
-```sql
-DUMP DATABASE my_database TO '/path/to/backup/my_database_cumulative.dmp' WITH CUMULATIVE
-```
-
-#### Database Restores
-The `LOAD` command restores databases or transaction logs from backup files.
-1. **Restore a Database**:
-```sql
-LOAD DATABASE my_database FROM '/path/to/backup/my_database.dmp'
-```
-2. **Restore Transaction Logs**:
--   Apply transaction log backups in sequence to recover up to a specific point.
-```sql
-LOAD TRANSACTION my_database FROM '/path/to/backup/my_database_log.dmp'
-```
-- Use `WITH UNTIL_TIME` for point-in-time recovery:
-```sql
-LOAD TRANSACTION my_database FROM '/path/to/backup/my_database_log.dmp' WITH UNTIL_TIME = '2025-06-10 10:00:00'
-```
-3. **Bring Database Online**:
-After loading, bring the database online:
-```sql
-ONLINE DATABASE my_database
-```
-
-### 🔹 5. **Transaction Log Purpose and Management**
-#### Purpose of the Transaction Log
-The transaction log in Sybase ASE is a system table (stored in the database’s log segment) that records all data modifications `(INSERT, UPDATE, DELETE)` to ensure durability and support recovery.
-
-#### Managing the Transaction Log
-1. **Monitor Log Space**:
--   Check log usage with `sp_spaceused` or `dbcc checktable(syslogs).`
-```sql
-SELECT name, log_size = size/512.0 FROM sysdatabases WHERE name = 'my_database'
-```
-2. **Truncate the Log**:
--   Remove inactive log records to free space (only if transaction log backups are not needed).
-```sql
-DUMP TRANSACTION my_database WITH TRUNCATE_ONLY
-```
- -   Use `WITH NO_LOG` for emergency truncation if the log is full and backups aren’t required.
-3. **Back Up the Log**:
--   Regularly back up the transaction log to enable point-in-time recovery and free log space.
-```sql
-DUMP TRANSACTION my_database TO '/path/to/backup/my_database_log.dmp'
-```
-4. **Expand Log Space**:
-If the log fills up, extend the log segment:
-```sql
-ALTER DATABASE my_database LOG ON device_name = size_in_MB
-```
-5. **Configure Log Truncation**:
-- Enable/disable automatic log truncation on checkpoint:
-```sql
-sp_dboption 'my_database', 'trunc log on chkpt', true  -- Truncates log automatically
-```
--    Disable for databases requiring transaction log backups.
-6. **Handle Log Full Issues**:
--   If the log fills, transactions may suspend. Use `sp_who` to identify blocking transactions and resolve them.
--   Emergency fix: Temporarily increase log size or truncate with `NO_LOG`.
-7. **Best Practices**:
--   Separate data and log segments on different devices for performance.
--   Schedule regular transaction log backups for critical databases.
--   Monitor log growth with tools like `sp_monitor` or `sp_logdevice`.
-
--   **Security**: Ensure only authorized users (e.g., sa_role) manage critical operations like backups or user creation.
--   **Performance Tuning**: Regularly update statistics (UPDATE STATISTICS) and rebuild indexes (REORG) to maintain performance.
--   **Monitoring**: Use system stored procedures (sp_who, sp_lock, sp_helpdb) for real-time monitoring.
-
-
-# Performance Tuning and Optimization
-## 1. How do you identify and resolve performance bottlenecks in Sybase?
-### Identifying Bottlenecks
-Performance bottlenecks in Sybase ASE can arise from various sources, such as poorly optimized queries, insufficient resources, locking issues, or outdated statistics. Here’s how to identify them:
-**Monitor Server Activity**:
-- Use `sp_who` to view active user connections and identify blocking processes
-- Use `sp_lock` to check for locking conflicts
-- Query master..sysprocesses for detailed process information, including CPU and I/O usage:
-```sql
-SELECT spid, status, cpu, physical_io FROM master..sysprocesses
-```
-**Analyze Query Performance**:
-- Enable `set showplan on` to display query execution plans and identify inefficient operations (e.g., table scans):
-```sql
-set showplan on
-SELECT * FROM my_table WHERE column1 = 'value'
-```
-- Use `set statistics io on` to measure I/O costs:
-```sql
-set statistics io on
-SELECT * FROM my_table
-```
-- Use `set statistics time on` to measure query execution time:
-```sql
-set statistics time on
-SELECT * FROM my_table
-```
-**System Monitoring**:
-- Use `sp_monitor` to gather server-wide performance metrics (e.g., CPU usage, I/O, network activity):
-- Query `master..mon*` tables (e.g., `monSysStatement`, `monProcess`) for detailed performance data in ASE 15.0+:
-```sql
-SELECT * FROM master..monSysStatement
-```
-**Check Resource Usage**:
-- Monitor disk I/O, memory, and CPU usage with tools like sp_sysmon for a comprehensive performance report:
-```sql
-sp_sysmon '00:05:00'  -- Run for 5 minutes
-```
-#### Resolving Bottlenecks
--   Create proper indexes (clustered/non-clustered).
-    
--   Rewrite inefficient queries (avoid cursors, nested loops).
-    
--   Update statistics.
-    
--   Normalize or denormalize tables if appropriate.
-    
--   Tune memory parameters and caches.
-
-## 2. What tools or commands do you use for query optimization in Sybase?
-**Showplan**
--   Displays the query execution plan, revealing whether indexes are used or if table scans occur.
-```sql
-set showplan on
-SELECT * FROM employees WHERE emp_id = 100
-```
-**Statistics IO**:
--   Reports the number of logical and physical I/O operations for a query, helping identify high I/O costs.
-```sql
-set statistics io on
-SELECT * FROM my_table
-```
-**Statistics Time**:
--   Measures query execution time, useful for benchmarking.
-```sql
-set statistics time on
-SELECT * FROM my_table
-```
-**sp_sysmon**:
--   Generates a detailed performance report for the server, including cache hit ratios, lock contention, and I/O statistics.
-```sql
-sp_sysmon '00:01:00'  -- Monitor for 1 minute
-```
-**Monitoring Tables (MDA Tables)**:
-- In ASE 15.0+, use Monitoring and Diagnostics (MDA) tables like `monSysStatement`, `monProcessSQLText`, and `monTableStatistics` to analyze query performance in real time:
-```sql
-SELECT StatementID, CPU, WaitTime FROM master..monSysStatement
-```
-**sp_helpindex**:
--   Lists indexes on a table to verify their structure and usage.
-```sql
-sp_helpindex 'my_table'
-```
-**Query Tuning Commands**:
-- Use `OPTIMIZE FOR` hints to influence query plans:
-```sql
-SELECT * FROM my_table (INDEX idx_my_index) WHERE column1 = 'value'	
-```
-- Adjust isolation levels to balance performance and consistency:
-```sql
-SET TRANSACTION ISOLATION LEVEL 1
-```
-**DBCC Commands**:
-- Use **dbcc traceon(3604)** with **dbcc sqltext** to debug query plans:
-```sql
-dbcc traceon(3604)
-dbcc sqltext
-```
->   SAP provides tools like **SQL Anywhere Profiler** or third-party tools like **DBArtisan** for advanced query analysis and tuning.
-
-## 3. How do you monitor and manage memory allocation in Sybase?
-### Monitoring Memory Allocation
-Sybase ASE manages memory through a shared memory pool, divided into data caches, procedure caches, and other structures. 
-**sp_configure**:
-- Displays memory-related configuration parameters:
-```sql
-sp_configure 'total logical memory'
-sp_configure 'procedure cache size'
-```
-**sp_monitorconfig**:
-- Shows memory usage and cache hit ratios:
-```sql
-sp_monitorconfig 'all'
-```
-**MDA Tables**:
-- Query `monDataCache` for cache usage and hit ratios:
-```sql
-SELECT CacheName, CacheSize, UsedPages, HitRatio FROM master..monDataCache
-```
-**sp_sysmon**:
-- Reports cache hit ratios, memory usage, and I/O performance:
-```sql
-sp_sysmon '00:01:00'
-```
-### Managing Memory Allocation
-**Configure Total Memory**:
-- Set the total memory available to ASE:
-```sql
-sp_configure 'max memory', 1048576  -- 1GB in 2KB pages
-```
-**Adjust Procedure Cache**:
-- Allocate memory for stored procedures and query plans:
-```sql
-sp_configure 'procedure cache size', 50000  -- In 2KB pages	
-```
-**Create Named Caches**:
-- Allocate specific caches for hot tables or indexes to improve performance: 
-```sql
-sp_cacheconfig 'my_cache', '100M', 'mixed'
-sp_bindcache 'my_cache', 'my_database', 'my_table'
-```
-**Optimize Cache Usage**:
--  Increase cache hit ratios by binding frequently accessed objects to dedicated caches.
-- Use `sp_helpcache` to view cache configurations.
-
-**Tune Buffer Pools**:
-- Configure buffer pools within caches for specific I/O sizes (e.g., 2K, 16K):
-```sql
-sp_poolconfig 'default data cache', '50M', '16K'
-```
->  Monitor cache hit ratios (aim for >90% for data caches).
->  Allocate sufficient memory for procedure cache to avoid recompilation.
->  Separate data and log caches to reduce I/O contention.
-
-## 5. What is index covering, and how does it improve query performance?
-
-Index covering occurs when a non-clustered index contains all the columns required by a query, allowing the query to be satisfied entirely from the index without accessing the underlying table data. This is also called a **covering index**.
-
-**Index covering** occurs when all the columns required by a query are present in the index itself — so **no need to access the data pages** of the table.
-
-**How It Works**:
--   A non-clustered index stores the indexed columns and a pointer to the table’s data. If the index includes all columns referenced in the SELECT, WHERE, JOIN, or ORDER BY clauses, the optimizer can retrieve data directly from the index.
-```sql
-CREATE NONCLUSTERED INDEX idx_cover ON employees(emp_id, last_name, dept_id)
-SELECT emp_id, last_name FROM employees WHERE dept_id = 10
-```
-Example:
-Table: `sales(order_id, customer_id, amount, order_date)`
-If you create:
-```sql
-create index idx_sales on sales(customer_id, amount)
-```
-
-Then:
-```sql
-select customer_id, amount from sales where customer_id = 123
-```
-✔️ Will be covered by the index (faster lookup, fewer I/Os).
-
-#### How It Improves Performance
--   **Reduced I/O**: Accessing only the index (a smaller structure) instead of the table data reduces disk I/O and memory usage.
--   **Faster Query Execution**: Fewer page accesses lead to quicker response times.
--   **Optimized Resource Usage**: Minimizes CPU and memory overhead by avoiding table data lookups.
-
-
-# 4. Initializing Database Devices in sybase ASE
-A database device is a storage area (e.g., a disk partition or file) used to store databases and their objects, like tables and logs. It must be initialized with `disk init` before use.
-
-### **Key Concepts**
--   **Database Device**: A named storage area (file or raw partition) allocated for storing database objects (data, logs, or both).
--   **Types of Devices**:
-    -   **Data Devices**: Store database tables and indexes.
-    -   **Log Devices**: Store transaction logs (recommended to be separate for recovery purposes).
-    -   **Default Devices**: Used automatically for new databases if no device is specified (e.g., `master` device by default).
--   **Initialization**: The process of creating and preparing a device for use by ASE, making it available for database creation or expansion.
--   **Command**:The `disk init` command prepares a physical disk or file for use by SAP ASE by mapping it to a logical name, adding it to `master..sysdevices` and organizing it into allocation units. It’s essential for making a device usable for database storage.
-
-### 1. **Steps to Initialize Database Devices**
-1. **Plan the Device**:
--   Determine the storage location (file path or raw partition).
--   Decide the size of the device (in megabytes, gigabytes, etc.).
--   Choose whether the device will store data, logs, or both.
--   Ensure the operating system file or partition has appropriate permissions for the Sybase user.
-2. **Use the `disk init` Command:** 
-	- The disk init command initializes a new database device. 
-- After running `disk init`, back up the `master` database to ensure recovery is possible if something goes wrong.
-- Below is the syntax:
-	```sql
-	disk init
-	    name = "device_name",
-	    physname = "physical_path",
-	    size = number_of_pages | 'size_in_MB' | 'size_in_GB',
-	    [dsync = {true | false}]
-	    [, directio = {true | false}]
-	    [, vdevno = device_number]
-	```
--   **Parameters**:
-    
-    -   name: Logical name of the device (e.g., data_dev1).
-    -   physname: Physical path to the file or raw partition (e.g., /sybase/devices/data_dev1.dat or /dev/rdsk/c0t0d0s2).
-    -   size: Size of the device (e.g., 1024M for 1 GB, or number of 2KB pages).
-    -   dsync: Ensures data is written to disk (set to true for data devices, typically false for log devices on supported platforms).
-    -   directio: Enables direct I/O (bypassing OS cache) for better performance (optional, platform-dependent).
-    -   vdevno: Virtual device number (optional, must be unique; ASE assigns one if not specified).
--   **Example**: Initialize a 2GB data device:
-	```sql
-	disk init
-	    name = "data_dev1",
-	    physname = "/sybase/devices/data_dev1.dat",
-	    size = "2G",
-	    dsync = true
-	```
-3. **Verify the Device**:
-	-   After initialization, check the device in the `sysdevices` system table:
-	```sql
-	select name, phyname, status from master..sysdevices
-	```
-4. **Assign the Device to a Database**:
-	- Use the `create database` or `alter database` command to allocate space on the device for a database.
-	```sql
-	create database mydb
-	    on data_dev1 = "500M"
-	    log on log_dev1 = "200M"
-	```
-5. **Set as Default Device (Optional)**:  
-	- To make the device a default for new databases, use:
-	```sql
-	sp_diskdefault data_dev1, defaulton
-	```
-	- To remove from default:
-	```sql
-	sp_diskdefault data_dev1, defaultoff
-	```
-
-### 2. **Getting Information about Devices with `sp_helpdevice`**
-- The `sp_helpdevice` command shows details about database devices listed in the `master..sysdevices` table.
-- Running `sp_helpdevice master` is like checking the properties of a folder to see its size, type, and what it’s used for.
-
-### 3. **Dropping Devices with `sp_dropdevice`**
-- The `sp_dropdevice` command removes a device from SAP ASE’s `master..sysdevices` table, making it unusable by the database server.
-```sql
-sp_dropdevice LOGICALNAME
-```
-- Removes the device’s entry from `sysdevices` but doesn’t delete the physical file or disk (you need to use operating system commands for that).
-
-### 4. **Designating Default Devices with `sp_diskdefault`**
-- The `sp_diskdefault` command marks devices as part of a pool that SAP ASE uses automatically when users create or expand databases without specifying a device.
-- Syntax:
-	```sql
-	sp_diskdefault logicalname, {defaulton | defaultoff}
-	```
-- Devices marked with defaulton are used in alphabetical order when space is needed.
-- **Best Practices**:
-	-   Remove critical devices like `master` or `sybsecurity` from the default pool using `defaultoff`.
-	-   Example: `sp_diskdefault master, defaultoff` ensures the `master` device isn’t used accidentally.
-- **Why it matters:** Helps manage storage allocation efficiently and prevents important devices from being overused.
-- Think of the default pool as a shared storage area that SAP ASE uses automatically unless you tell it to use a specific device.
-### **5. Choosing Default and Nondefault Devices**
-- Not all devices should be in the default pool. Some devices have specific purposes and need to be reserved.
-- It’s like keeping your important files in a locked drawer (nondefault) while letting shared folders (default) be used by everyone.
-
-### **6. Increasing Device Size with `disk resize`**
-- The `disk resize` command lets you increase the size of an existing database device without creating a new one.
--   **Supported Devices**: Works for raw partitions and file system devices, but not for dump/load devices.
-- **Example**: To add 4MB to a device named testdev:
-```sql
-disk resize name = "testdev", size = "4M"
-```
-
-### **7. Handling Insufficient Disk Space**
-
--   **Explanation**: If there’s not enough disk space during a disk resize, SAP ASE will extend the device to the maximum available space.
--   **Key Points**:
-    -   **Example**: If you request 40MB but only 39.5MB is available, the device gets 39.5MB.
-    -   You can’t reduce a device’s size with `disk resize`.
-
->**Why should you back up the master database after running `disk init`?**
-
- **Answer**: Backing up the `master` database ensures recovery is possible if it gets damaged, as `disk init` modifies the `master..sysdevices` table, which is critical for system configuration.
-
-
- ## 5. Maintenance
- ### 1. `UPDATE STATISTICS`
-Refreshes the database's **knowledge about the data** in a table or index so that queries run faster.
-
-### **How it works internally:**
-
--   Takes a **sample of data** from the table.
-
--   Checks how data is **distributed** (e.g., which values are common).
-    
--   Builds a **histogram** (frequency chart).
-    
--   Stores the result in **system tables** (`sysstatistics`).
-    
--   The **query optimizer** uses this to make smarter decisions.
-
-### 2. `CC CHECK STORAGE` (Command: `dbcc checkstorage`)
-A **full health check** of the database to find any **corruption** or **inconsistencies** in data pages, indexes, and allocations.
-Use regularly or when DB is unstable
-
-### **How it works internally:**
-
--   Reads all data pages, index pages, and allocation maps.
-    
--   Compares expected values with actual data.
-    
--   Logs **any errors or corruption** found in a results database.
-    
--   You review the result to fix issues.
-
-### 3. `REORG` (Reorganize Table or Index)
-**Rearranges and cleans up** rows and pages to reduce internal fragmentation and improve performance.
-`REORG` **cleans and reorders** them for faster access.
-
-### **How it works internally:**
-
--   Moves **scattered rows** into the correct order.
-    
--   Fills **partially empty pages** to save space.
-    
--   Optionally, **compacts** or **rebuilds indexes** depending on the type of `REORG`.
-    
--   Keeps the table more **efficiently organized**.
-    
-
- **Types:**
-
--   `reorg rebuild index` — Rebuilds index from scratch. -- You remove all books, clean shelves, re-place books.
-    
--   `reorg compact` — Releases unused space inside data pages. -- Compress clothes to save wardrobe space
-    
--   `reorg forward_row` — Fixes out-of-order row storage. -- Moves scattered clothes into drawers
-
-### 4. `REBUILD` (Index Rebuild)
-**Recreates the entire index** from scratch to remove fragmentation and improve speed.
-Use when indexes are fragmented.
-
-### **How it works internally:**
-
--   Drops the old index (internally).
-    
--   Reads all table data again.
-    
--   Builds a **new, perfectly organized index**.
-    
--   Replaces the old one with the new one.
-
-### 5. Database Backups
-A **copy** of your database data (and optionally logs), saved to a file — so you can **restore it later** if anything goes wrong.
-
-**TYPES:-**
-1. Full Backup: Saves the entire database
-```
--- Full Database Backup
-dump database mydb to "/sybase_backups/mydb_full.dmp"
-```
-2. Transaction Log Backup: Saves all changes since last backup
-```
--- Backup only changes (for point-in-time recovery)
-dump transaction mydb to "/sybase_backups/mydb_log_01.trn"
-```
-**Restore Scenario (Disaster Recovery)**
-Step 1: Load the Full Backup
-```sql
--- Restore the full backup (with NORECOVERY to apply logs later)
-load database mydb from "/sybase_backups/mydb_full.dmp"
-```
-Step 2: Load the Transaction Log
-```sql
--- Restore transaction log to get latest data
-load transaction mydb from "/sybase_backups/mydb_log_01.trn"
-```
-Step 3 (Optional): Load more logs if you have more log backups
-```sql
--- Repeat for additional logs
-load transaction mydb from "/sybase_backups/mydb_log_02.trn"
-```
-Final Step: Bring Database Online
-```sql
--- Finish recovery and bring the DB online
-online database mydb
-```
