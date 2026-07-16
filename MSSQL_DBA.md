@@ -1,5 +1,104 @@
 # MSSQL 
 
+# Data Migration
+**Data Migration** is the process of moving or copying data from one database or database server to another. The goal is to transfer data while maintaining its integrity and consistency.
+
+### Common Types of Data Migration
+
+* **Same database vendor (Version Upgrade or Server Migration)**
+
+  * Example:
+
+    * SQL Server 2017 → SQL Server 2019
+    * SQL Server 2019 (Server A) → SQL Server 2019 (Server B)
+
+* **Different database vendors (Heterogeneous Migration)**
+
+  * Example:
+
+    * SQL Server → PostgreSQL
+    * Oracle → MySQL
+    * MySQL → SQL Server
+
+### How is Data Migration Achieved?
+
+Data migration can be performed using one or more of the following methods:
+
+* **ETL (Extract, Transform, Load) tools**
+
+  * SQL Server Integration Services (SSIS)
+  * Informatica
+  * Talend
+  * Pentaho
+
+* **Database replication technologies**
+
+  * SQL Server Replication
+  * Log Shipping
+  * Always On Availability Groups (for specific scenarios)
+
+* **Backup and Restore**
+
+  * Take a backup from the source server and restore it on the destination server.
+
+* **Import/Export utilities**
+
+  * BCP (Bulk Copy Program)
+  * SQL Server Import and Export Wizard
+  * BULK INSERT
+
+* **Third-party migration tools**
+
+  * Fivetran
+  * Qlik Replicate (formerly Attunity)
+  * AWS Database Migration Service (DMS)
+
+
+# Database Migration
+
+**Database Migration** is the process of moving the entire database environment—including the database schema, objects, and often the data—from one environment to another. It may also involve applying schema changes incrementally as an application evolves.
+
+A database migration can include:
+
+* Creating or modifying tables
+* Adding or dropping columns
+* Creating indexes
+* Creating or modifying views
+* Stored procedures
+* Functions
+* Triggers
+* Constraints
+* Data movement (when required)
+
+### Database Migration Tools
+
+Schema versioning and deployment are commonly managed using:
+
+* Flyway
+* Liquibase
+* SSDT (SQL Server Data Tools)
+* DbUp
+
+These tools integrate with version control systems such as Git and help automate database deployments.
+
+
+## Is Moving SQL Server 2019 to Another Server Also a Migration?
+
+**Yes.**
+
+Suppose you have:
+
+* SQL Server 2019 on **Server A**
+* SQL Server 2019 on **Server B**
+
+If you move or restore your database from Server A to Server B, it is still considered a **database migration**, even though the SQL Server version remains the same.
+
+Examples:
+
+* SQL Server 2019 (Server A) → SQL Server 2019 (Server B) ✔️ Database/Server Migration
+* SQL Server 2017 → SQL Server 2019 ✔️ Version Migration
+* SQL Server → PostgreSQL ✔️ Heterogeneous Migration
+* SQL Server on-premises → Azure SQL Database ✔️ Cloud Migration
 
 
 

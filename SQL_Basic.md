@@ -1,10 +1,151 @@
 
-INDEX:-
-![Advanced SQL Techniques]()
+### Index
+[1. Advanced SQL Techniques]()
+
 
 # Advanced SQL Techniques
+## Database Architecture
+![](./images/SQL/DatabaseArchitecture.png)
 
+We have client side where we write sql query and in server side there are server components like the database engine, storage we have two components in it disk and cache.
+
+**Database Engine** is the brain of the database, executing multiple operations such as storing, retrieving, and managing data within the database.
+
+In storage we have **user**, **catalog** and **temp**. 
+
+**User** is the main component of the database this is where the actual data that users care about is stored. e.x. all the tables is the users data. 
+
+**Catalog** is the database's internal storage for its own information a blueprint that keeps track of everything about the database itself not the user data. **Information Schema** a system-defined schema with built-in views that provide info about the database, like tables and columns.
+```sql
+SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+```
+**Temp** is the temporary storage used by the database for short-term tasks, like processing queries or sorting data. Once these tasks are done, the storage is cleared. e.x- inside system databases --> tempdb --> tables --> temporary tables.
+
+**HOW  QUERY WORKS :-**
+We write a simple select query it send to the server the database engine takes inorder to process it. so, first it check weather we have the data in the cache if yes it will return if no then database engine checks in the disk and it find the details and the query can be executed. Then the result of the query can be send back to the client side.
+
+ 
 ## 1. Subqueries
+
+**Subquery:** A query nested inside another (main) query.
+
+![](./images/SQL/sub-query.png)
+
+### How it works :-
+
+When the whole query is executed, the subquery runs first. Its result is **not** sent directly to the user — instead, it stays inside the query as an **intermediate result**.
+
+The main query then works with two sources of data:
+
+1.  The **intermediate result** returned by the subquery
+2.  The **original database tables**
+
+The main query's job is to combine data from both sources and return the final output to the user.
+
+### Why We Need Subqueries
+
+In complex tasks, we might need to perform several operations together, such as:
+1. Joining tables
+2. Filtering
+3. Transformation
+4. Aggregation
+
+Instead of writing a separate standalone query for each step, we can nest them as subqueries within one query:
+1. **Joining tables** → subquery
+2. **Filtering** → subquery
+3. **Transformation** → subquery
+4. **Aggregation** → main query
+
+This way, each step feeds its intermediate result into the next, all within a single combined query.
+
+
+### Types:
+Based on Dependency :-
+1. Non-correlated subquery
+2. Correlated subquery
+
+Based on Result Types :-
+1. **Scalar subquery** it return single value.
+```sql
+SELECT AVG(Sales) FROM Sales.Orders
+```
+2. **Row subquery**  it return multiple rows and single column.
+```sql
+SELECT CustomerID FROM Sales.Orders
+```
+3. **Table subquery** it returns multiple rows & multiple column.
+```sql
+SELECT * FROM Sales.Orders
+```
+
+**Location/Clauses** : where the subquery can be used within the main query :-
+1. SELECT : used to aggregate data side by side with the main query's data, allowing for direct comparison.
+```sql
+-- Show the product IDs, product names, prices, and total number of orders.
+-- Main Query
+SELECT 
+	ProductID, 
+	Product, 
+	Price,
+	-- Sub Query
+	(SELECT COUNT(*) FROM Sales.Orders) AS TotalOrders
+FROM Sales.Products
+```
+
+2. FROM
+```sql
+-- 1. Find the products that have a price higher then the average price of all products.
+
+-- Main Query
+SELECT * FROM
+	-- Sub Query
+	(SELECT ProductID, Price, AVG(Price) OVER() AvgPrice
+	FROM Sales.Products)t
+WHERE price > AvgPrice
+
+-- 2. Rank Customers based on their total amount of sales.
+-- Main Query
+SELECT *, RANK() OVER (ORDER BY TotalSales DESC) CustomerRank
+FROM
+	-- Sub Query
+	(SELECT 
+	CustomerID,
+	SUM(Sales) TotalSales
+	FROM Sales.Orders
+	GROUP BY CustomerID)t
+```
+3. JOIN : Used to prepare the data(filtering or aggregation) before joining it with other tables.
+```sql
+-- Show all customer details and find the total orders of each customer.
+-- Main Query
+SELECT c.*, o.TotalOrders
+FROM Sales.Customers c
+LEFT JOIN  (
+	SELECT
+	CustomerID,
+	COUNT(*) TotalOrders
+	FROM Sales.Orders
+	GROUP BY CustomerID) o
+ON c.CustomerID = o.CustomerID
+```
+
+4. WHERE : used for complex filtering logic and makes query more flexible and dynamic.
+```sql
+-- Find the producets that have a price higher than the average price of all products.
+SELECT 
+ProductID,
+Price
+FROM Sales.Products
+WHERE Price > (SELECT AVG(Price) FROM Sales.Products)
+
+-- AvgPrice
+SELECT 
+ProductID,
+Price,
+(SELECT AVG(Price) FROM Sales.Products) AvgPrice
+FROM Sales.Products
+WHERE Price > (SELECT AVG(Price) FROM Sales.Products)
+```
 
 ## 2. CTE
 
