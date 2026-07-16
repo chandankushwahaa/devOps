@@ -63,8 +63,8 @@ This way, each step feeds its intermediate result into the next, all within a si
 
 ### Types:
 Based on Dependency :-
-1. Non-correlated subquery
-2. Correlated subquery
+1. Non-correlated subquery : Subquery is independent of the main query.
+2. Correlated subquery : Subquery is dependent of the main query.
 
 Based on Result Types :-
 1. **Scalar subquery** it return single value.
@@ -150,6 +150,230 @@ WHERE Price > (SELECT AVG(Price) FROM Sales.Products)
 ```
 
 ## 2. CTE
+Comman Table Expression is temporary, named result set (virtual table), that can be used times within your query to simplify and organize complex query.
+### WHY CTE ?
+![](./images/SQL/CTE.png)
+
+Here in the above image we are repeating the same subquery of JOIN twice which cause redundancy. So, we reuse the Step1 again and we can do this with the help of CTE.
+
+In subquery the steps are bottom to top but in CTE steps will be Top to Bottom.
+
+### How DB Execute CTE
+![](./images/SQL/CTEExecution.png)
+
+As a Data Analyst, we write a query that has two parts: a **CTE Query** (`WITH Details AS (SELECT...)`) and a **Main Query** that selects data from `Orders` and joins it with `Details` multiple times.
+
+Once we execute the query, it travels from the Client to the **Database Engine**, which passes it to the Server for processing.
+
+#### Step 1: CTE Executes First
+The Database Engine reads the query and recognizes that the CTE has priority, so it executes the CTE first. It fetches the required data from **Disk** (from the catalog/user tables) and stores the result in the **Cache**, naming this cached result **"Details"** — similar to a temporary table.
+
+#### Step 2: Main Query Executes
+Next, the Database Engine executes the **Main Query** step by step. Since the Main Query references `Details` multiple times (via multiple `JOIN`s), it pulls this data directly from the **Cache** instead of recalculating it or going back to disk each time.
+
+#### Why This Matters
+This is one of the biggest benefits of using a CTE — the repeated `JOIN`s reuse the same cached result from high-speed memory instead of being recomputed from disk every time, making retrieval much faster.
+
+#### Final Step: Returning the Result
+Once the Main Query finishes executing, the final result is sent back from the Server, through the **Database Engine**, to the **Client**, where the Data Analyst sees it as the **Result**.
+
+### CTE TYPES:-
+1. **None-Recursive CTE**
+	
+	a. **Standalone CTE**: runs independently as it's self-contained and doesn't rely on other CTEs or queries.
+	
+> DB --> CTE --> Intermediate --> Main Query --> Final Result
+
+Independent :  DB --> CTE 
+
+Dependent : Intermediate --> Main Query -->  : Because the main query cannot be executed alone because it need the result from the first query.
+```sql
+-- Find the total Sales Per Customer (Standalone CTE)
+WITH CTE_Total_Sales AS
+(
+SELECT
+	CustomerID,
+	SUM(Sales) AS TotalSales
+FROM Sales.Orders
+GROUP BY CustomerID -- intermediate result this will execute and store in db memory
+)
+-- Main Query last order date for each customer
+SELECT
+c.CustomerID,
+c.FirstName,
+c.LastName,
+cts.TotalSales  -- comes from CTE
+FROM Sales.Customers c
+LEFT JOIN CTE_Total_Sales cts
+ON cts.CustomerID = c.CustomerID
+```
+#### Multiple CTE
+```mermaid
+graph LR
+    DB[(DB)]
+
+    DB --> CTE1["#1 CTE"]
+    DB --> CTE2["#2 CTE"]
+    DB --> CTE3["#3 CTE"]
+    DB --> CTE4["#4 CTE"]
+
+    CTE1 --> R1[Result 1]
+    CTE2 --> R2[Result 2]
+    CTE3 --> R3[Result 3]
+    CTE4 --> R4[Result 4]
+
+    R1 --> MQ[Main Query]
+    R2 --> MQ
+    R3 --> MQ
+    R4 --> MQ
+
+    MQ --> FR[Final Result]
+
+    style FR fill:#90EE90,stroke:#333,stroke-width:2px
+    style DB fill:#f0f0f0,stroke:#333
+```
+```sql
+-- Find the total Sales Per Customer (Standalone CTE)
+WITH CTE_Total_Sales AS
+(
+SELECT
+	CustomerID,
+	SUM(Sales) AS TotalSales
+FROM Sales.Orders
+GROUP BY CustomerID -- intermediate result this will execute and store in db memory
+)
+-- last order date for each customer
+, CTE_Last_Order AS
+(
+SELECT 
+	CustomerID,
+	MAX(OrderDate) AS Last_Order
+FROM Sales.Orders
+GROUP BY CustomerID
+)
+-- Main Query 
+SELECT
+c.CustomerID,
+c.FirstName,
+c.LastName,
+cts.TotalSales  -- comes from CTE
+FROM Sales.Customers c
+LEFT JOIN CTE_Total_Sales cts
+ON cts.CustomerID = c.CustomerID
+```
+b. **Nested CTE** :  It uses the result of another CTE, so it can't run independently.
+```sql
+-- 1. Find the total Sales Per Customer (Standalone CTE)
+WITH CTE_Total_Sales AS
+(
+SELECT
+	CustomerID,
+	SUM(Sales) AS TotalSales
+FROM Sales.Orders
+GROUP BY CustomerID 
+)
+-- 2. Last order date for each customer
+, CTE_Last_Order AS
+(
+SELECT 
+	CustomerID,
+	MAX(OrderDate) AS Last_Order
+FROM Sales.Orders
+GROUP BY CustomerID
+)
+-- 3. Rank CUstomer based on Total Sales Per Customer (Nested CTE)
+, CTE_Customer_Rank AS
+(
+SELECT 
+CustomerID,
+TotalSales,
+RANK() OVER (ORDER BY TotalSales DESC) AS CustomerRank
+FROM CTE_Total_Sales -- Reusing the CTE 1
+) 
+-- SELECT * FROM CTE_Customer_Rank
+
+-- 4. Segment Customer based on their Total Sales (Nested CTE)
+, CTE_Customer_Segments AS
+(
+SELECT 
+CustomerID,
+TotalSales,
+CASE WHEN TotalSales > 100 THEN 'HIGH'
+	WHEN TotalSales > 50 THEN 'Medium'
+	ELSE 'LOW'
+END CustomerSegments
+FROM CTE_Total_Sales
+)
+-- SELECT * FROM CTE_Customer_Segments
+
+-- Main Query 
+SELECT
+c.CustomerID,
+c.FirstName,
+c.LastName,
+cts.TotalSales, 
+clo.Last_Order,
+ccr.CustomerRank,
+ssg.CustomerSegments
+FROM Sales.Customers c
+
+LEFT JOIN CTE_Total_Sales cts
+ON cts.CustomerID = c.CustomerID
+
+LEFT JOIN CTE_Last_Order clo
+ON clo.CustomerID = c.CustomerID
+
+LEFT JOIN CTE_Customer_Rank ccr
+ON ccr.CustomerID = c.CustomerID
+
+LEFT JOIN CTE_Customer_Segments ssg
+ON ssg.CustomerID = c.CustomerID
+```
+2. **Recursive CTE** : self-referencing query that repeatedly processes data until a specific condition is met.
+```sql
+-- Generate a squence of number from 1 - 10.
+WITH Series AS (
+	-- Anchor Query
+	SELECT
+	1 AS MyNumber
+	UNION ALL
+	-- Recursive Query
+	SELECT
+	MyNumber + 1
+	FROM Series
+	WHERE MyNumber < 10
+)
+-- Main Query
+SELECT * FROM Series
+```
+
+```sql
+-- Show the employee hierarchy by displaying each emloyee's level within organization.
+WITH CTE_Emp_Hierarchy AS
+(
+	SELECT 
+		EmployeeID,
+		FirstName,
+		ManagerID,
+		1 AS Level
+	FROM Sales.Employees
+	WHERE ManagerID IS NULL
+
+	UNION ALL
+
+	SELECT 
+		e.EmployeeID,
+		e.FirstName,
+		e.ManagerID,
+		Level + 1
+	FROM Sales.Employees AS e
+	INNER JOIN CTE_Emp_Hierarchy ceh
+	ON e.ManagerID = ceh.EmployeeID
+)
+
+SELECT * FROM CTE_Emp_Hierarchy
+```
+
 
 ## 3. VIEW
 It is a virtual table that shows data without storing it physically. In order to see the data, we have to execute the query behind the view.
