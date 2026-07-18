@@ -516,6 +516,163 @@ CREATE VIEW V_Monthly_Summary AS
 )
 ```
 
+### How the Database Executes Views
+
+#### Step 1: Creating a View
+
+When a data engineer creates a view (e.g., `TopN`), the query is sent to the **Database Engine**. The engine recognizes this is a **view**, not a table, and handles it differently.
+
+The engine goes to the **Disk Storage → Catalog**, and stores:
+
+1.  **Metadata** about the view
+2.  The **actual SQL query** defined in the `CREATE VIEW` statement
+
+> **Key difference from tables:** For a regular table, the catalog stores only **metadata**. For a view, the catalog stores **both the metadata and the underlying query**.
+
+Importantly, the database engine does **not** create a physical table or store any actual data — no data is written to disk or cache. Only the **metadata and the query definition** are stored in the system catalog.
+
+----------
+
+#### Step 2: Querying a View
+
+Once the view exists, a data analyst can run a simple `SELECT * FROM TopN`.
+
+Here's what happens on the backend:
+
+1.  The database engine recognizes this is a **view**, not a table.
+2.  It first goes to the **catalog** to retrieve the **query** associated with the view (not data).
+3.  It **executes that view's query** — and this query pulls data from the underlying **physical table** (e.g., `Orders`).
+4.  Once that result is ready, the engine then executes the **analyst's query** on top of that result.
+5.  The final result is sent back to the data analyst.
+
+So effectively, **two queries run in sequence**:
+
+```
+1. View's underlying query (fetches data from the physical table)
+2. Analyst's query (runs on top of that result)
+
+```
+
+The data always comes from a **physical table** — but the analyst never gets direct access to that table. They only interact with the **view**. This entire two-step process (fetch view query → execute it → run analyst's query) happens **every single time** someone queries the view.
+
+----------
+
+#### Step 3: Dropping a View
+
+If the data engineer decides to drop the view, the database engine goes to the **system catalog** and deletes:
+
+-   The **metadata**
+-   The **stored query**
+
+Since a view never held any actual data, **dropping a view causes zero data loss**. This is very different from dropping a physical table (like `Orders`), which **would** permanently delete real data.
+
+---------
+
+So views are essentially a **saved query with a name** — lightweight, safe to create/drop, and always pulling fresh data from the real underlying tables at query time.
+
+```sql
+-- Provide view that combines details from orders, products, customers and employees.
+CREATE VIEW Sales.V_Order_Detail AS (
+	SELECT 
+	o.OrderID,
+	o.OrderDate,
+	p.Product,
+	p.Category,
+	COALESCE(c.FirstName, '') + ' ' + COALESCE(c.LastName, '') CustomerName, -- COALESCE will take either firstname or lastname if any is NULL
+	c.Country CustomerCountry,
+	COALESCE(e.FirstName, '') + ' ' + COALESCE(e.LastName, '') SalesName,
+	e.Department,
+	o.Sales,
+	o.Quantity
+
+	FROM Sales.Orders o
+	LEFT JOIN Sales.Products p
+	ON p.ProductID = o.ProductID
+	LEFT JOIN Sales.Customers c
+	ON c.CustomerID = o.CustomerID
+	LEFT JOIN Sales.Employees e
+	ON e.EmployeeID = o.SalesPersonID
+)
+-- To test it
+Select * from Sales.V_Order_Detail
+```
+
+#### Using Views for Data Security
+![](./images//SQL/viewsDataSecurity.png)
+
+
+Another major use case for SQL views is implementing **security** — protecting sensitive data before sharing it with different users.
+
+### The Problem: Direct Table Access
+
+Imagine you have a single table, `Orders`, with 4 columns (A, B, C, D) and multiple rows. Now suppose different roles — a **Manager**, a **Data Analyst**, and a **Student** — all need access to query this data.
+
+If everyone queries the **table directly**, they all see the **exact same thing**: every column and every row, with no restrictions. In real projects, this is a serious problem, since some of that data (like column D) might be sensitive and shouldn't be visible to everyone.
+
+You _could_ try to solve this by creating multiple separate copies of the table for each role — but keeping all those tables in sync would be a nightmare.
+
+### The Solution: Role-Based Views
+
+Instead, you can **revoke direct access to the physical table** and create a **dedicated view for each role**, each showing only what that role is allowed to see.
+
+**1. `Orders_Managers` View → All Data** Managers are trusted with sensitive data, so this view exposes **all columns (A, B, C, D)** and **all rows**. Even though nothing is restricted here, it's still good practice to give managers a view rather than direct table access — that way, you retain flexibility to restrict something later without disrupting how they query the data.
+
+**2. `Orders_Analysts` View → Column-Level Security** Data analysts get access to most of the data, but **column D is sensitive** and hidden. This view only exposes **columns A, B, and C** — all rows are included, but the sensitive column is excluded entirely. This is called **column-level security**.
+
+**3. `Orders_Students` View → Column-Level + Row-Level Security** Students get the most restricted access. This view:
+
+-   Hides **column D** (like the analyst view) → **column-level security**
+-   Also hides **row 3** entirely → **row-level security**
+
+So students see even less than analysts — both certain columns _and_ certain rows are filtered out.
+
+### Why This Works So Well
+
+-   Each role only interacts with **its own view**, never the raw table
+-   You can change what a view exposes at any time, without touching the underlying data or breaking anything for other roles
+-   There's **no data duplication** — every view pulls live from the same single `Orders` table (as we discussed earlier: views don't store data, only the query)
+-   Adding a new role later is easy — just create another view with the right column/row restrictions
+
+
+This is one of the most common and powerful real-world use cases for views — they let you enforce fine-grained access control cleanly, without duplicating or physically splitting your data.
+| Role | View | Columns Visible | Rows Visible | Security Type |
+|---|---|---|---|---|
+| Manager | `Orders_Managers` | A, B, C, D (all) | All | None needed |
+| Data Analyst | `Orders_Analysts` | A, B, C | All | Column-level security |
+| Student | `Orders_Students` | A, B, C | Excludes row 3 | Column-level + Row-level security |
+
+```sql
+-- Provide the view for EU sales team.
+CREATE VIEW Sales.V_Order_Detail_EU AS (
+	SELECT 
+	o.OrderID,
+	o.OrderDate,
+	p.Product,
+	p.Category,
+	COALESCE(c.FirstName, '') + ' ' + COALESCE(c.LastName, '') CustomerName, -- COALESCE will take either firstname or lastname if any is NULL
+	c.Country CustomerCountry,
+	COALESCE(e.FirstName, '') + ' ' + COALESCE(e.LastName, '') SalesName,
+	e.Department,
+	o.Sales,
+	o.Quantity
+
+	FROM Sales.Orders o
+	LEFT JOIN Sales.Products p
+	ON p.ProductID = o.ProductID
+	LEFT JOIN Sales.Customers c
+	ON c.CustomerID = o.CustomerID
+	LEFT JOIN Sales.Employees e
+	ON e.EmployeeID = o.SalesPersonID
+	-- Removing USA 
+	WHERE c.Country != 'USA'
+)
+-- To test it
+Select * from Sales.V_Order_Detail_EU
+```
+## 4. CTAS & TEMP Tables
+
+
+
 ## 5. STORE PROCEDURE
 A **Stored Procedure** in SQL is a **precompiled collection of one or more SQL statements** that is stored in the database and can be executed whenever needed.
 
@@ -525,7 +682,6 @@ When we call exec SP inside the server it will start executing all the sql state
 > We can store multiple SQL statements in specific order and we can save in inside the database and each time we need ours sql statement we can go and simply execute them.
 
 ![](./images/SQL/StoreProcedure.png)
-
 
 ### Syntax
 ```sql
