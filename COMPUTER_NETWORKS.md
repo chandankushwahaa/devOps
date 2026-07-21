@@ -1,4 +1,12 @@
 # COMPUTER NETWORKS
+## INDEX
+[1. Terminologies](#1-terminologies)
+
+[2. IP, subnet, CDIR](#2-ip-address-structure)
+
+[3. MAC, NIC, ARP](#3-mac-address-structure)
+
+[4. OSI/TCP]()
 
 It is a group or system of interconnected peoples or items.
 Computers connected with each other with cables or wireless is called **computer networks**
@@ -136,3 +144,235 @@ Default Gateway (Router):   192.168.1.1
 ```
 -   If the laptop wants to reach `192.168.1.50` → same network → sent **directly**, no gateway involved.
 -   If the laptop wants to reach `google.com` (some IP like `172.217.24.142`) → different network → sent to the **Default Gateway (192.168.1.1)**, which is the router, and the router forwards it to the internet.
+
+
+
+##  3. MAC Address Structure
+A **MAC (Media Access Control) Address** is a **unique 48-bit (6-byte) physical address** assigned to a **Network Interface Card (NIC)** by the manufacturer used to uniquely identify devices.
+
+It is used for **communication within a Local Area Network (LAN)** and operates at the **Data Link Layer (Layer 2)** of the OSI model.
+
+### MAC Address Structure
+A MAC address is:
+
+-   **48 bits**
+-   **6 bytes**
+-   Written as **12 hexadecimal digits**
+-   Each pair represents **1 byte (8 bits)**
+```
+00:1A:2B:3C:4D:5E
+or
+00-1A-2B-3C-4D-5E
+- 00:1A:2B : first 3bytes/1st 24bits are called OUI(Organizationally Unique Identifier) identifies the manufacturer (vendor), assigned by the IEEE.
+- 3C:4D:5E : last 3bytes is unique for device Identifier (NIC Specific).
+```
+>NOTE
+>```
+>0-9 : decimals
+>0-1 : binary
+>0-16 : hexadecimal (0 1 2 3 4 5 6 7 8 9 0 A B C D E F)
+>```
+
+
+### Finding MAC Address
+```bash
+# Windows
+ipconfig /all   
+getmac
+# Linux
+ip link show
+```
+### NIC 
+A **NIC (Network Interface Card)** is the **hardware component** that allows a computer to connect to a network.
+
+Without a NIC, a computer cannot communicate over Ethernet or Wi-Fi.
+#### Relationship Between NIC, Ethernet, Wi-Fi, Bluetooth, and MAC Address
+                  Computer
+
+      +---------------------------+
+      |                           |
+      |        Motherboard        |
+      |                           |
+      |  +---------------------+  |
+      |  |   Network Interface |  |
+      |  |      Card (NIC)     |  |
+      |  +---------------------+  |
+      |      │       │       │
+      |      │       │       │
+      | Ethernet   Wi-Fi   Bluetooth
+      |      │       │       │
+      |   MAC A   MAC B   MAC C
+      +---------------------------+
+
+|MAC| IP |
+|--|--|
+| Physical address (cannot change) | Logical address (can changed)|
+|Layer 2 (Data Link)|Layer 2 (Data Link)|
+|Usually assigned by manufacturer|Assigned manually or by DHCP|
+|48 bits|IPv4 = 32 bits, IPv6 = 128 bits|
+
+### ARP
+**ARP (Address Resolution Protocol)** is used in **IPv4** networks to find the **MAC address corresponding to an IP address on the same local network**.
+
+
+It takes IP as an input and return the MAC for the device holding that IP.
+
+### ARP cache
+```bash
+# It displays the ARP cache/table — a list of IP addresses mapped to their corresponding MAC addresses for devices your computer has recently communicated with on the local network.
+# Windows
+nrp -a   
+# Linux
+nrp -n
+```
+
+```
+User Types www.google.com
+            │
+            ▼
+DNS → Get Google's IP
+            │
+            ▼
+Destination is outside LAN
+            │
+            ▼
+Need Router's MAC
+            │
+            ▼
+ARP Request (Broadcast)
+            │
+            ▼
+Router Sends ARP Reply
+            │
+            ▼
+ARP Cache Updated
+            │
+            ▼
+Create IP Packet
+(Source IP → Destination IP)
+            │
+            ▼
+Encapsulate in Ethernet Frame
+(Source MAC → Router MAC)
+            │
+            ▼
+Router Forwards Packet
+            │
+            ▼
+Each Router Replaces Layer 2 MAC Addresses
+            │
+            ▼
+Packet Reaches Google Server
+```
+
+## OSI MODEL
+Open Systems Interconnection is a 7-leyer networking model that explains how data travels from one device to another over a network.
+![](./images/computerNetworks/osi.png)
+
+
+```
+1. Suppose you open Chrome and visit:
+	https://google.com
+when we click on Search Then....
+```
+**7. APPLICATION LAYER:** Provide services directly to the user. It is the interface between the application and the network.
+- Example: Chrome, Firefox, Whatsapp, Outlook
+- Protocol: HTTP, SMTP, IMAP, POP3, FTP, SSH
+```
+2. Chrome sends think og i want to open google 
+	GET /HTTP/1.1
+	Host: google.com
+```
+**6. PRESENTATION LAYER:** makes data readable for both sender and receiver.
+- It handles encryption, decryption, compression, encoding.
+- In nodeJS we use openssl for enycryption and zlib for compression.
+```
+3. 
+https://  -- TLS/SSL encrypts the request.
+Encryption: password = 12345 ---> J8af#$#@%F (encrypted only google can decrypt it)
+compression : 10MG image --> 2MB image
+Encoding: converts "English Hindi" --> YTF-8 bytes
+Without this layer receiver wouldn't understand the format.
+```
+**5. SESSION LAYER:** creates and manages communication sessions.
+- Responsibilities: start session, maintain session, close session.
+```
+4.
+If you login into Gmail.
+A session is created. if wifi disconnects for 2 seconds the session lyaer tries to resume communication.
+```
+**4. TRANSPORT LAYER:** reliable delivery. This is one of the most important layers.
+- Protocols: TCP --> Segment, UDP --> Datagram
+```
+5. 
+TCP: downloading a movie 2GB.
+movie is divided into 
+- packet 1
+- packet 2
+- packet 3
+- packet 4
+- ...
+If packet 3 is lost. TCP requests please resend packet 3.
+
+UDP : Fast used in video calling, gaming, etc. If one packet is lost video continues, no retransmission.
+```
+> NOTE: Transport Layer uses ports.
+> ```
+> HTTP : 80
+> HTTPS : 443
+> SSH : 22
+> SQL Server : 1433
+> MySQL : 2206
+> DNS : 53
+> PostgreSQL : 5432
+> Example: 192.168.1.10:443  --> connect to https service.
+>```
+
+
+**3. NETWORK LAYER:** Provides logical addressing and routing. This layer decide the route.
+- Responsibilities: IP address, Routing, Best path selection
+
+```
+6. 
+laptop IP : 192.168.1.20
+Google IP : 54.23.43.53
+Router Checks : Destination IP --> ISP --> INternet --> Google
+```
+
+**2. DATA LINK LAYER:** communication inside the local network (LAN).
+- Uses: MAC address, Frames, Error detection.
+- Protocol: Ethernet, ppp, VLAN
+```
+Find router MAC using ARP.
+```
+
+
+**1. PHYSICAL LAYER:** it transmits bits.
+- Deals with electrical signals, fiber optics, radio waves, cables.
+- Example: Ethernet cable, wi-fi, Fiber, Bluetooth, USB
+- Devices: Hub, Repeater, NIC, Fiber
+```
+electrical/light/radio signals converts into bits --> 1010101010 
+```
+
+
+## 4 TCP/IP MODEL
+![](./images/computerNetworks/tcp_ip.png)
+
+**1. Layer 4 – Application Layer** : Provides services directly to applications. This layer combine **Application** **Presentation ** and **Session ** layer.
+- Protocols: HTTP, HTTPS, FTP, SMTP, DNS, SSH, Telnet, SNMP
+```
+When we type google.com
+if HTTPS is used:-
+- Encryption (TLS)
+- Session Management
+- Data Formating
+are all handled here.
+```
+**2. Layer 3 – Transport Layer** : provide end-to-end communication.
+- Protocol : TCP, UDP
+
+**3. Layer 2 – Internet Layer**: moves packet between different networks.
+- Protocol: IPv4, IPv6, ICMP, ARP
+
+**4. Layer 1 – Network Layer**: handles communication on the local network and sends bits over the physical medium. This layer combine **Physical** and **Data Link** layer.
