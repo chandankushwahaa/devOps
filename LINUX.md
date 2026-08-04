@@ -369,4 +369,159 @@ df -h /mnt/apps
 lsblk
 ```
 
-### Extending LVM Partition
+###  Extending LVM Partition 
+#### Scenario 1: Space Available in VG 
+```bash
+# Check current usage
+df -h /mnt/apps
+
+# 1. Check available free space in VG
+vgs
+
+# 2. Extend Logical Volume (use free space)
+lvextend -L +2G /dev/vg_database/lv_apps
+# OR extend to use ALL free space
+lvextend -l +100%FREE /dev/vg_database/lv_apps
+
+# 3. Verify LV size
+lvs
+# LV       VG           Attr       LSize  
+# lv_apps  vg_database  -wi-ao---- 10.00g  ← Now 10GB!
+
+# 4. Resize filesystem to use new space
+# For ext4:
+resize2fs /dev/vg_database/lv_apps
+
+# For XFS:
+xfs_growfs /mnt/apps
+
+# 5. Verify
+df -h /mnt/apps
+# Filesystem                     Size  Used Avail Use% Mounted on
+# /dev/mapper/vg_database-lv_apps 10G  7.8G  2.2G  78% /mnt/apps  ← EXTENDED!
+
+```
+
+#### Scenario 2: No Space Available in VG 
+```bash
+# ============================================
+# STEP 1: Check VG - NO Free Space
+# ============================================
+
+vgs
+# VG           #PV #LV #SN Attr   VSize  VFree
+# vg_database   1   1   0 wz--n- 10.00g 0     ← NO FREE SPACE!
+
+df -h /mnt/apps
+# Filesystem                     Size  Used Avail Use% Mounted on
+# /dev/mapper/vg_database-lv_apps 10G  9.8G  200M  98% /mnt/apps  ← CRITICAL!
+
+# ============================================
+# STEP 2: Add New Physical Disk
+# ============================================
+
+# 2a. Scan for new SCSI disk
+echo "- - -" > /sys/class/scsi_host/host0/scan
+
+# 2b. Verify new disk is detected
+lsblk
+# NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+# sda      8:0    0   50G  0 disk /
+# sdb      8:16   0   10G  0 disk 
+# └─sdb1   8:17   0   10G  0 part 
+# sdc      8:32   0   10G  0 disk   ← NEW DISK DETECTED!
+
+# 2c. Create partition on new disk (Type 8e for LVM)
+fdisk /dev/sdc
+# → n (new)
+# → p (primary)
+# → 1 (partition number)
+# → [Enter] (default first sector)
+# → [Enter] (default last sector)
+# → t (change type)
+# → 8e (Linux LVM)
+# → w (write)
+
+# 2d. Inform kernel about partition changes
+partprobe /dev/sdc
+
+# 2e. Create Physical Volume
+pvcreate /dev/sdc1
+
+# 2f. Verify new PV
+pvs
+# PV         VG    Fmt  Attr PSize  PFree
+# /dev/sdb1  vg_database lvm2 a--  10.00g 0
+# /dev/sdc1          lvm2 ---  10.00g 10.00g  ← NEW PV!
+
+# ============================================
+# STEP 3: Add PV to Volume Group
+# ============================================
+
+# 3a. Extend Volume Group with new PV
+vgextend vg_database /dev/sdc1
+
+# 3b. Verify VG now has free space
+vgs
+# VG           #PV #LV #SN Attr   VSize  VFree
+# vg_database   2   1   0 wz--n- 20.00g 10.00g  ← Now 20GB total, 10GB free!
+
+# OR detailed view
+vgdisplay vg_database
+# --- Volume group ---
+# VG Name               vg_database
+# VG Size               20.00 GiB
+# Free  PE / Size       2560 / 10.00 GiB   ← FREE SPACE AVAILABLE!
+
+# ============================================
+# STEP 4: Extend Logical Volume
+# ============================================
+
+# Option A: Extend by 10GB (using new disk space)
+lvextend -L +10G /dev/vg_database/lv_apps
+
+# Option B: Extend to use ALL free space in VG
+lvextend -l +100%FREE /dev/vg_database/lv_apps
+
+# Option C: Extend to specific total size (e.g., 18GB)
+lvextend -L 18G /dev/vg_database/lv_apps
+
+# ============================================
+# STEP 5: Verify LV Extended
+# ============================================
+
+lvs
+# LV       VG           Attr       LSize  
+# lv_apps  vg_database  -wi-ao---- 18.00g  ← Now 18GB!
+
+vgs
+# VG           #PV #LV #SN Attr   VSize  VFree
+# vg_database   2   1   0 wz--n- 20.00g 2.00g   ← 2GB free remaining
+
+# ============================================
+# STEP 6: Resize Filesystem (ONLINE - no unmount!)
+# ============================================
+
+# For ext4:
+resize2fs /dev/vg_database/lv_apps
+
+# For XFS:
+xfs_growfs /mnt/apps
+
+# ============================================
+# STEP 7: Verify Final Result
+# ============================================
+
+df -h /mnt/apps
+# Filesystem                     Size  Used Avail Use% Mounted on
+# /dev/mapper/vg_database-lv_apps 18G  9.8G  8.2G  44% /mnt/apps  ✅ EXTENDED!
+
+lsblk
+# NAME                      MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+# sdb                         8:16   0   10G  0 disk 
+# └─sdb1                      8:17   0   10G  0 part 
+#   └─vg_database-lv_apps   253:0    0   18G  0 lvm  /mnt/apps
+# sdc                         8:32   0   10G  0 disk 
+# └─sdc1                      8:33   0   10G  0 part 
+#   └─vg_database-lv_apps   253:0    0   18G  0 lvm  /mnt/apps  ← SPANNED!
+```
