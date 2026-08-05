@@ -1,7 +1,9 @@
 Content
 1. [Linux](#linux)
+2. [Disk Management](#2-disk-management-and-run-levels)
+3. [User Management](#3-user-management)
 
-# LINUX
+# 1. LINUX
 Linux is a family of open-source Unix-like operating systems inspired by UNIX., based on the Linux kernel, a computer program that manages the system's hardware and software.
 
 kernel that is used in a distribution, but most people just refer to it as an OS.
@@ -51,7 +53,7 @@ Linux has hundreds of distributions (Linux OS versions). They are all based on t
 |Real-world example|A startup might use `AWS server -> Ubuntu -> Website`| A bank might use `Data Center -> RHEL -> Banking application`|
 
 
-# 2. File System
+# 2. DISK MANAGEMENT AND RUN LEVELS
 OS stores files and directories in an organized and structured way. There are many different types of filesystems. 
 
 Windows:-
@@ -79,7 +81,7 @@ ls -l  # list all the files structure
 /run # system daemons that start very early to store temporary runtime file like PID files
 /mnt # to mount external filesystem (e.x NFS)
 ```
-# DISK MANAGEMENT AND RUN LEVELS
+
 ## System Run Level
 **Main Run Level**
 - 0 : Shutdown the system
@@ -524,4 +526,102 @@ lsblk
 # sdc                         8:32   0   10G  0 disk 
 # └─sdc1                      8:33   0   10G  0 part 
 #   └─vg_database-lv_apps   253:0    0   18G  0 lvm  /mnt/apps  ← SPANNED!
+```
+
+
+# 3. USER MANAGEMENT
+
+1. **Local User Management** : This is the traditional method where user accounts are defined in local files on the specific RHEL system. This is ideal for small environments or for system-level service accounts.
+```bash
+# Managing local users is typically done through a suite of powerful command-line utilities. 
+sudo useradd john 		#Creates a new user account.
+sudo passwd john@123 	#Sets or changes a user's password.
+sudo groupadd developers #Creates a new group.
+sudo usermod -aG developers john # Modifies existing user attributes
+sudo userdel -r john #Deletes a user account.
+```
+
+2. **Centralized User Management (SSSD, LDAP, AD):** As your infrastructure grows, managing users locally on every server becomes a nightmare. Centralized management stores user information in a central directory (like LDAP, Active Directory, or Red Hat's Identity Management - IdM). Clients use **SSSD** (System Security Services Daemon) to connect to this directory for authentication and identity lookups.
+	- `LDAP` : **LDAP (Lightweight Directory Access Protocol)** is a protocol used to **store and retrieve user information from a central directory**.
+	- It stores: Username, Password (hashed), UID, GID, Home directory, Login shell, Email, Group
+	- **How LDAP Authentication Works:-**
+		- 1.  User enters username and password.
+		- 2. Linux sends the authentication request to the LDAP server.
+		- 3.  LDAP checks the credentials.
+		- 4.  If valid, authentication succeeds.
+		- 5.  The user logs in.
+	- `AD`: Microsoft Active Directory (commonly called **Active Directory** or **AD**) is Microsoft's directory service used to manage users, computers, groups, and policies in Windows environments.
+	- It stores: User accounts, Passwords, Computer accounts, Groups, Printers, Organizational Units (OUs), Security policies, Domain information
+
+### Local User Management
+1. username:-
+	- max 32 character
+2. uid:
+	- 0 -> root
+	- 1-99 -> OS users, lib, bin, ...
+	- 100-999 --> id are reserved for third party applications (tomcat, apache, nfs, jboss, postgres, mysql, jetty, weblogic, ...)
+	- 1000-60000 --> local users or general users
+3. GID (Group ID
+	-  Primary Group GID: Stored in `/etc/passwd`
+4. Home Directory
+	- 	Default location:  `/home/`
+5. Login Shell
+	- Default:  `/bin/bash`
+	- Other valid shells: Listed in `/etc/shells` (e.g., `/bin/sh`, `/bin/tcsh`, `/bin/zsh`).
+
+```bash
+# Adding User SIMPLE
+useradd chandan # this will crate user abd primary group of same name
+passwd chandan # then set password
+sudo /etc/shadow # to see password encrypted
+su - chandan	# login as chandan
+
+groupadd linuxgroup # creating new group
+gpasswd linuxgroup
+
+useradd -G linuxgroup sunny 	# for new user
+usermod -G linuxgroup chandan # for existing user
+getent group linuxgroup # to list all user inside group
+```
+
+```bash
+# Creating User with differnt UID
+sudo groupadd devopsGrp #first create group
+getent group devopsGrp # verify 
+# Adding User Advance
+sudo useradd -u 1003 -g devopsGrp -c "Sunny Kumar - DevOps" -s /bin/bash -m -d /home/sunny sunny
+# `u 1003` : Set specific UID
+# -g devopsGrp : primary Group
+# -G : Supplementary Groups (One or More)
+# -c : comment for the user
+# -s /bin/bash : Set the default login shell.
+# -m : create home directory
+# sunny : username
+
+sudo passwd sunny # set password
+id sunny # verify
+passwd -n 10 -x 180 -w 7 sunny
+# -n 10 : wait 10 days before changing pass
+# -x 180 : expire
+# -w 7 : warning period for pass expire
+chage -l sunny # to check
+
+usermod -aG <GROUPNAME> sunny # adding to different group
+
+cat /etc/passwd OR getent passwd# list of users
+cut -d: -f1 /etc/passwd # only user
+cat /etc/group # list the group
+getent group devopsGrp # List Members of a Group
+last # to check login history
+```
+
+```bash
+# Deleting User
+userdel -r chandan # it will delete user including home directory
+```
+
+```bash
+usermod -L chandan # lock the user
+passwd -S chandan # to verify 'L' means account is locked
+usermod -U chandan # unlock user
 ```
