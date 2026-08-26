@@ -81,41 +81,28 @@ ls -l  # list all the files structure
 /run # system daemons that start very early to store temporary runtime file like PID files
 /mnt # to mount external filesystem (e.x NFS)
 ```
+## Types of Disk
+1. SATA Disk :  Common interface for HDD/SSD.
+`/dev/sda`  : disk1
+`/dev/sdb` : disk2
+After partition disk1
+`/dev/sda1` , `/dev/sda2`, and so on. 
+- Use `lsblk` to see in terminal.
 
-## System Run Level
-**Main Run Level**
-- 0 : Shutdown the system
-- 1 : single-user mode, usually aliased as s or S
-- 6 : Reboot the system
+2. PATA Disk : Older disk interface. `/dev/hda`
+3. Virtual Disk : Software-based disk used by virtual machines
 
-**Other Run Levels**
-- 2 : Multiuser mode without networking
-- 3 : Multiuser mode with networking
-- 5 : Multiuser mode with networking and GUI.
-```bash
-# login as sudo
-init 0  # same as shutdown now
-init 6 # same as reboot
-who -r # to check which runlevel you are currently
-```
+**Storage device types:**
+-   HDD
+-   SSD
 
-## 1. Modern Boot Process (UEFI + GPT)
-> Older version uses BIOS + MBR boot sequence.
--   **Power On** – Electricity flows to the motherboard and CPU, same as before.
--   **UEFI (Unified Extensible Firmware Interface)** – The CPU starts executing firmware instructions, but this time from **UEFI**, which is stored in **flash memory** on the motherboard (not classic ROM). UEFI is more advanced than BIOS — it has its own mini operating system-like environment, can support a mouse-driven graphical interface, and can even access network/internet during boot.
--   **Settings Storage** – UEFI still uses a small battery-backed chip (successor to CMOS) to retain firmware settings and the system clock when the power is off.
--   **POST (Power-On Self-Test)** – UEFI still performs the same job as BIOS did: checking all connected hardware devices. If something fails, boot stops here.
--   **GPT (GUID Partition Table)** – Instead of reading an MBR, UEFI reads the **GPT**, a more modern partitioning scheme on the boot disk. GPT supports drives larger than 2TB and allows far more than the 4 primary partitions MBR was limited to.
--   **EFI System Partition (ESP)** – UEFI looks for a special partition called the **ESP**, formatted in FAT32, which contains the bootloader files (e.g., `bootmgfw.efi` for Windows, `grubx64.efi` for Linux).
--   **Bootloader → OS** – The bootloader in the ESP is executed, which then loads the OS kernel (Windows, Linux, etc.) into RAM, completing the boot process.
+**Interfaces / technologies:**
+-   SATA
+-   NVMe/PCIe
+-   SAS
+-   USB, etc.
 
-## 2. LVM
-**df -h** : list the partition 
 
-**fdisk -l** : inside sudo it will give the details about the disk.
-
-#### `lsblk`
-Lists all **block devices** (disks and partitions) attached to the system in a tree/hierarchical view.
 ```bash
 lsblk
 # OUTPUT
@@ -126,31 +113,102 @@ sda # main disk
 
 sdb # in future if we add new disk
 ```
+## Partition Types
+1. Primary Partition 
+2. Extended Partition
+3. Logical Partition
 
-Shows things like:
+**1. Primary Partition:** 
 
--   Disk names (`sda`, `sdb`, `nvme0n1`, etc.)
--   Partitions on each disk (`sda1`, `sda2`, etc.)
--   Size of each device
--   Mount points (where each partition is mounted, e.g., `/`, `/boot`, `/home`)
--   Whether it's a disk, partition, or LVM logical volume
+-   A partition that can directly contain a filesystem and be used for storing data.
+-   In **MBR**, you can have a maximum of **4 primary partitions**.
+-   A primary partition can be made **bootable/active**.
+-   Example:
+    ```
+    /dev/sda1
+    /dev/sda2
+    ```
+### 2. Extended Partition
 
-Useful for quickly seeing what storage is available and how it's currently partitioned/mounted — same command you'd use before setting up LVM.
-
-#### `ll`
-
-Lists the contents of the current directory in **long listing format** — showing permissions, owner, group, size, and modified date for each file/folder.
-
-bash
-
-```bash
-ll
+-   An **MBR-only** partition type.
+-   It is used to overcome the 4-primary-partition limitation.
+-   An extended partition acts as a **container** for logical partitions.
+-   You can have **only one extended partition** on an MBR disk.
+Example:
+```
+/dev/sda
+├── /dev/sda1     → Primary
+├── /dev/sda2     → Primary
+├── /dev/sda3     → Primary
+└── /dev/sda4     → Extended
+     ├── /dev/sda5 → Logical
+     ├── /dev/sda6 → Logical
+     └── /dev/sda7 → Logical
 ```
 
--   This is usually a **shortcut/alias** for `ls -l` (most Linux distros, including CentOS, set this up by default in `.bashrc`).
--   If run right after `cd /`, it will list the top-level system directories: `bin`, `boot`, `dev`, `etc`, `home`, `lib`, `var`, etc.
+### 3. Logical Partition
+-   A logical partition is created **inside an extended partition**.
+-   It allows you to create more partitions when using MBR.
+-   Examples:
+    ```
+    /dev/sda5
+    /dev/sda6
+    /dev/sda7
+    ```
+### MBR vs GPT
+**MBR and GPT are partitioning schemes**. They define **how a disk is organized into partitions**.
+### 1. MBR — Master Boot Record
+**MBR** is an older partitioning scheme.
+It has some important limitations:
+-   Maximum **4 primary partitions** and Older.
+-   To create more partitions, you use **Extended + Logical partitions**
+-   Supports disks up to about **2 TB** with the traditional 512-byte sector setup
+-   Common on older BIOS-based systems
+```
+Disk (/dev/sda) (100GB)
+│
+├── Primary Partition : dev/sda1  (20GB)
+├── Primary Partition : dev/sda2 (20GB)
+├── Primary Partition : dev/sda3 (20GB)
+└── Extended Partition : dev/sda4 (40GB)
+     ├── Logical Partition : /dev/sda5 (20GB)
+     └── Logical Partition : /dev/sda6 (20GB)
+```
+### 2. GPT — GUID Partition Table
+**GPT** is the modern partitioning scheme and is commonly used today.
+Advantages:
+-   Supports **many partitions** and Modern
+-   No Primary/Extended/Logical partition limitation like MBR
+-   Supports **very large disks**
+-   Works naturally with **UEFI**
+-   Keeps backup partition-table information, making it more robust
 
-## 1. How data is stored
+```
+Disk (/dev/nvme0n1)
+│
+├── EFI System Partition
+├── Linux Partition
+├── Linux Partition
+└── Linux Partition
+```
+```
+Physical storage
+      ↓
+   HDD / SSD
+      ↓
+Interface
+   SATA / NVMe / SAS
+      ↓
+Partitioning scheme
+     MBR / GPT
+      ↓
+Partitions
+      ↓
+Filesystem
+   ext4 / XFS / etc.
+```
+
+## How data is stored
 | Component    | What it is                                      | Analogy                        | Example                          |
 | :----------- | :---------------------------------------------- | :----------------------------- | :------------------------------- |
 | **Disk**     | Physical hardware                               | The empty warehouse            | HDD, SSD, NVMe                   |
@@ -169,49 +227,9 @@ ll
 5. **Disk** → Hardware physically retrieves data → sends it back up
 
 
-## 2.  Primary Partition 
-
-### 1. Bootable Partition
-   -   Modern Linux distributions (RHEL, Ubuntu, CentOS, Rocky, etc.) can boot with the root (`/`) filesystem on LVM.
-   -   Usually, only the `/boot` partition is kept outside LVM (although some modern systems can even have `/boot` on LVM depending on the bootloader and configuration).
 
 
-### 2. Primary and Extended Partitions (MBR)
-
--   An **MBR (Master Boot Record)** disk supports **a maximum of 4 primary partitions**.
--   Example (1000 GB disk):
-    -   Partition 1 → 200 GB (Primary)
-    -   Partition 2 → 200 GB (Primary)
-    -   Partition 3 → 200 GB (Primary)
-    -   Partition 4 → Extended (400 GB)
--   Instead of using the fourth partition as a primary partition, you can make it an **Extended Partition**.
--   Inside the Extended Partition, you can create many **Logical Partitions** (not "LVM partitions").
-    -   Linux numbering starts from **/dev/sda5**.
-    -   The theoretical limit is very high (commonly cited as up to **65535 logical partitions**, though the practical limit depends on the operating system and tools).
-
-> **Note:** Extended and logical partitions exist only in the **MBR** partitioning scheme.
-
-
-### 3. Limitation of Normal Partitions
-Suppose:
--   `/dev/sda1` is mounted as `/data`.
--   PostgreSQL stores its data in `/data`.
--   The partition becomes full.
-
-With a normal partition:
-
--   You **cannot simply increase its size** unless there is adjacent unallocated space.
--   Often you need to:
-    -   Stop the application (downtime).
-    -   Unmount the filesystem (in many cases).
-    -   Resize the partition using partitioning tools.
-    -   Resize the filesystem.
-    -   Mount it again.
-
-This is one reason why **LVM (Logical Volume Manager)** is preferred.
-
-
-## 3. Adding a New Disk (VMware)
+## 1. Adding a New Disk (VMware)
 After attaching a new virtual disk in VMware, use these commands to check the current disk/partition list:
 ```bash
 lsblk
@@ -297,7 +315,39 @@ If there's a syntax error in `/etc/fstab`, `mount -a` will report it — fix the
 mount     # lists all currently mounted filesystems, so you can confirm /postgres mounted with the right options
 ```
 
-## 4. LVM (Logical Volume Manager)
+### Create Partition
+```bash
+lsblk  # list the available disk
+fdisk -l  # list available disk
+
+
+fdisk /dev/sdb 		# '/dev/sdb' is a new disk after adding.
+Command (m for help): n
+Partition type:
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended
+Select (default p): p
+Partition number (1-4, default 1): 1
+First sector (2048-20971519, default 2048): [Enter]
+Last sector, +sectors or +size{K,M,G} (2048-20971519, default 20971519): +10G
+Command (m for help): p  # to view the newly created partition
+Device     Boot Start     End Sectors Size Id Type
+/dev/sdb1        2048 4196351 4194304   10G 83 Linux
+Command (m for help): w  # to save it
+
+
+lsblk   # to verify the newly created partition
+
+# To Delete any Partition
+fdisk /dev/sdb
+Command (m for help): d  # to delete
+Selected partition 1
+Partition 1 has been deleted.
+Command (m for help): w   # to save and quit
+```
+
+
+## 2. LVM (Logical Volume Manager)
 LVM is a storage virtualization layer that sits between physical disks and the file system, giving you flexibility that traditional partitions cannot provide.
 
 ### The Three Layers of LVM
@@ -307,226 +357,283 @@ LVM is a storage virtualization layer that sits between physical disks and the f
 
 ![](./images/linux/LVM-vs-TraditionalPartitions.png)
 
-### Creating a new LVM
+
+
+### Creating LVM Partition
 ```bash
-# Scenario: You have a 10GB disk `/dev/sdb`
-
-# 1. For new SCSI disks (detect new disk)
-echo "- - -" > /sys/class/scsi_host/host0/scan
-
-# 2. Verify disk is detected
-lsblk
-# Should show /dev/sdb (10GB)
-
-# 3. Create partition on the disk (IMPORTANT!)
-# LVM needs a partition, NOT the whole disk (though possible, partitioning is recommended)
 fdisk /dev/sdb
-# → n (new partition)
-# → p (primary)
-# → 1 (partition number)
-# → [Enter] (default first sector)
-# → [Enter] (default last sector - use full disk)
-# → t (change type)
-# → 8e (Linux LVM)
-# → w (write and exit)
 
-# OR use parted for GPT:
-# parted /dev/sdb mklabel gpt
-# parted /dev/sdb mkpart primary 0% 100%
-# parted /dev/sdb set 1 lvm on
+Command (m for help): n
+Partition type
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended (container for logical partitions)
+Select (default p): p
+Partition number (1-4, default 1): 
+First sector (2048-16777215, default 2048): 
+Last sector, +/-sectors or +/-size{K,M,G,T,P} (2048-16777215, default 16777215): +2G
 
-# 4. Create Physical Volume (on the partition, NOT the whole disk)
-pvcreate /dev/sdb1   # ← CORRECTED: /dev/sdb1 not /dev/sdb
+Created a new partition 1 of type 'Linux' and of size 2 GiB.
 
-# 5. Verify PV
-pvs
+Command (m for help): t    # change partition type to LVM
+Selected partition 1
+Hex code or alias (type L to list all): L  # to list all types
+Aliases:
+   linux          - 83
+   swap           - 82
+   extended       - 05
+   uefi           - EF
+   raid           - FD
+   lvm            - 8E
+   linuxex        - 85
+Hex code or alias (type L to list all): 8E   # LVM
+Changed type of partition 'Linux' to 'Linux LVM'.
 
-# 6. Create Volume Group
+Command (m for help): w			# to save and exit
+The partition table has been altered.
+Calling ioctl() to re-read partition table.
+Syncing disks.
+
+# NOW Create Physical Volume (VG)
+pvcreate /dev/sdb1
+pvdisplay  or pvs		# to verify
+
+# Create Voulme Group (VG)
 vgcreate vg_database /dev/sdb1
+vgdisplay or vgs  # to verify
 
-# 7. Verify VG
-vgs
+# Create Logical Volume (1GB for each apps)
+lvcreate -L 1000M -n lv-app1 vg_database
+lvcreate -L 1000M -n lv-app2 vg_database
+lvdisply or lvs  # to verify
 
-# 8. Create Logical Volume (8GB for apps)
-lvcreate -L 8G -n lv_apps vg_database
+# Create an ext4 filesystem on the Logical Volume `lv-app1`, which belongs to the Volume Group `vg_database`
+mkfs.ext4 /dev/vg_database/lv-app1
+mkfs.ext4 /dev/vg_database/lv-app2
 
-# 9. Verify LV
-lvs
+# create dir to mount
+mkdir app1
+mkdir app2
 
-# 10. Format with filesystem
-mkfs.ext4 /dev/vg_database/lv_apps
+# Create mount point and mount
+mount /dev/vg_database/lv-app1 /root/app1/
+mount /dev/vg_database/lv-app2 /root/app2/
 
-# 11. Create mount point and mount
-mkdir -p /mnt/apps
-mount /dev/vg_database/lv_apps /mnt/apps
+df -Th # to verify
 
-# 12. Add to /etc/fstab for persistence
-echo "/dev/vg_database/lv_apps /mnt/apps ext4 defaults 0 0" >> /etc/fstab
+# to see the change done in mount
+cat /etc/mtab  # copy the last and paste below
+
+# Add to /etc/fstab for persistence Mount
+echo "/dev/mapper/vg_database-lv--app1 /root/app1 ext4 defaults  0 0" >> /etc/fstab
+echo "/dev/mapper/vg_database-lv--app2 /root/app2 ext4 defaults  0 0" >> /etc/fstab
 
 # 13. Validate fstab entries
 mount -a
+mount -av
 
 # 14. Verify mount
 df -h /mnt/apps
 lsblk
 ```
+```
+Physical Disk
+     ↓
+Physical Volume (PV)
+     ↓
+Volume Group
+vg_database
+     ↓
+Logical Volume
+lv-app1
+     ↓
+ext4 filesystem
+     ↓
+Mounted at
+/root/app1
+```
+### Extending a Disk Using LVM
 
-###  Extending LVM Partition 
-#### Scenario 1: Space Available in VG 
-```bash
-# Check current usage
-df -h /mnt/apps
-
-# 1. Check available free space in VG
-vgs
-
-# 2. Extend Logical Volume (use free space)
-lvextend -L +2G /dev/vg_database/lv_apps
-# OR extend to use ALL free space
-lvextend -l +100%FREE /dev/vg_database/lv_apps
-
-# 3. Verify LV size
-lvs
-# LV       VG           Attr       LSize  
-# lv_apps  vg_database  -wi-ao---- 10.00g  ← Now 10GB!
-
-# 4. Resize filesystem to use new space
-# For ext4:
-resize2fs /dev/vg_database/lv_apps
-
-# For XFS:
-xfs_growfs /mnt/apps
-
-# 5. Verify
-df -h /mnt/apps
-# Filesystem                     Size  Used Avail Use% Mounted on
-# /dev/mapper/vg_database-lv_apps 10G  7.8G  2.2G  78% /mnt/apps  ← EXTENDED!
 
 ```
+                 STORAGE
+                    │
+                  DISK
+                    │
+                PARTITION
+                    │
+              ┌─────┴─────┐
+              │            │
+          Filesystem      LVM
+              │            │
+              │           PV
+              │            │
+              │           VG
+              │            │
+              │           LV
+              │            │
+              └─────┬──────┘
+                    │
+                MOUNT POINT
+                    │
+             /data /home /var
+                    │
+              FILES & DIRECTORIES
+                    │
+          Owner / Group / Permissions
+```
 
-#### Scenario 2: No Space Available in VG 
+## Creating entire raw disk directly as an LVM Physical Volume (PV) without creating a partition
+Let's assume:
+
+-   New disk: `/dev/sdb`
+-   Disk size: **2 GB**
+-   Volume Group: `vg-database`
+-   Logical Volume: `lv-postgres`
+-   Mount point: `/postgres`
+-   Filesystem: **XFS**
 ```bash
-# ============================================
-# STEP 1: Check VG - NO Free Space
-# ============================================
+lsblk
+# Lists disks, partitions and mount points.
+# Confirm that /dev/sdb is the new 2GB disk.
+
+sudo pvcreate /dev/sdb
+# Creates an LVM Physical Volume directly on /dev/sdb.
+# No partition such as /dev/sdb1 is required.
+sudo pvs
+# Shows the available Physical Volumes.
+
+sudo vgcreate vg-database /dev/sdb
+# Creates VG named vg-database using /dev/sdb.
+sudo vgs
+# Shows the Volume Group and available free space.
+
+sudo lvcreate -l 100%FREE -n lv-postgres vg-database
+# Creates an LV named lv-postgres.
+# -l 100%FREE means use all available space in the VG.
+sudo lvs
+# Displays the Logical Volume details.
+
+sudo mkfs.xfs /dev/vg-database/lv-postgres
+# Creates an XFS filesystem on the Logical Volume.
+
+sudo mkdir /postgres
+# Creates the directory where the filesystem will be mounted.
+
+sudo mount /dev/vg-database/lv-postgres /postgres
+# Mounts the LV to /postgres.
+
+df -h /postgres
+# Confirms that the filesystem is mounted and shows its size.
+
+sudo vi /etc/fstab
+#Make it permanent after reboot. Make change in the file
+
+sudo mount -a
+# Reads /etc/fstab and mounts filesystems.
+# If there is no error, the fstab entry is valid.
+
+df -h /postgres
+# Verify the mount is working.
+```
+
+## Adding Space in LVM File System
+### 1. Use free space already available in the VG
+```bash
+df -h /postgres
+# Check current filesystem usage
 
 vgs
-# VG           #PV #LV #SN Attr   VSize  VFree
-# vg_database   1   1   0 wz--n- 10.00g 0     ← NO FREE SPACE!
+# Check free space available in the Volume Group
 
-df -h /mnt/apps
-# Filesystem                     Size  Used Avail Use% Mounted on
-# /dev/mapper/vg_database-lv_apps 10G  9.8G  200M  98% /mnt/apps  ← CRITICAL!
+lvs
+# Check the current LV size
 
-# ============================================
-# STEP 2: Add New Physical Disk
-# ============================================
+# if `vg-database` has 5 GB free, then
+lvextend -L +5G /dev/vg-database/lv-postgres
+# Increase LV by 5 GB
 
-# 2a. Scan for new SCSI disk
-echo "- - -" > /sys/class/scsi_host/host0/scan
+xfs_growfs /postgres
+# Grow XFS filesystem to use the additional space
 
-# 2b. Verify new disk is detected
+df -h /postgres
+# Verify
+```
+
+### 2. Add a new disk to the existing VG
+Suppose `/dev/sdc` is a new 10 GB disk.
+```bash
 lsblk
-# NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
-# sda      8:0    0   50G  0 disk /
-# sdb      8:16   0   10G  0 disk 
-# └─sdb1   8:17   0   10G  0 part 
-# sdc      8:32   0   10G  0 disk   ← NEW DISK DETECTED!
+# Confirm the new disk
 
-# 2c. Create partition on new disk (Type 8e for LVM)
-fdisk /dev/sdc
-# → n (new)
-# → p (primary)
-# → 1 (partition number)
-# → [Enter] (default first sector)
-# → [Enter] (default last sector)
-# → t (change type)
-# → 8e (Linux LVM)
-# → w (write)
+pvcreate /dev/sdc
+# Create PV directly on the new disk
 
-# 2d. Inform kernel about partition changes
-partprobe /dev/sdc
+vgextend vg-database /dev/sdc
+# Add the new disk to existing VG
+vgs
+# Verify VG has additional free space
 
-# 2e. Create Physical Volume
-pvcreate /dev/sdc1
+# Then extend `/postgres`:
+lvextend -L +10G /dev/vg-database/lv-postgres
+# Increase LV by 10 GB
 
-# 2f. Verify new PV
+xfs_growfs /postgres
+# Increase XFS filesystem
+
+df -h /postgres
+# Verify
+```
+
+### 3. Extend the existing disk/LUN(Logical Unit Number)
+Suppose `/dev/sdb` was originally **20 GB** and storage team increases it to **30 GB**.
+```bash
+lsblk
+# Verify that the OS sees the increased disk size
+pvresize /dev/sdb
+# Makes the additional disk space available to LVM
 pvs
-# PV         VG    Fmt  Attr PSize  PFree
-# /dev/sdb1  vg_database lvm2 a--  10.00g 0
-# /dev/sdc1          lvm2 ---  10.00g 10.00g  ← NEW PV!
-
-# ============================================
-# STEP 3: Add PV to Volume Group
-# ============================================
-
-# 3a. Extend Volume Group with new PV
-vgextend vg_database /dev/sdc1
-
-# 3b. Verify VG now has free space
 vgs
-# VG           #PV #LV #SN Attr   VSize  VFree
-# vg_database   2   1   0 wz--n- 20.00g 10.00g  ← Now 20GB total, 10GB free!
+# Verify additional free space
 
-# OR detailed view
-vgdisplay vg_database
-# --- Volume group ---
-# VG Name               vg_database
-# VG Size               20.00 GiB
-# Free  PE / Size       2560 / 10.00 GiB   ← FREE SPACE AVAILABLE!
+lvextend -L +10G /dev/vg-database/lv-postgres
+# Extend the LV
 
-# ============================================
-# STEP 4: Extend Logical Volume
-# ============================================
+xfs_growfs /postgres
+# Extend XFS filesystem
 
-# Option A: Extend by 10GB (using new disk space)
-lvextend -L +10G /dev/vg_database/lv_apps
-
-# Option B: Extend to use ALL free space in VG
-lvextend -l +100%FREE /dev/vg_database/lv_apps
-
-# Option C: Extend to specific total size (e.g., 18GB)
-lvextend -L 18G /dev/vg_database/lv_apps
-
-# ============================================
-# STEP 5: Verify LV Extended
-# ============================================
-
-lvs
-# LV       VG           Attr       LSize  
-# lv_apps  vg_database  -wi-ao---- 18.00g  ← Now 18GB!
-
-vgs
-# VG           #PV #LV #SN Attr   VSize  VFree
-# vg_database   2   1   0 wz--n- 20.00g 2.00g   ← 2GB free remaining
-
-# ============================================
-# STEP 6: Resize Filesystem (ONLINE - no unmount!)
-# ============================================
-
-# For ext4:
-resize2fs /dev/vg_database/lv_apps
-
-# For XFS:
-xfs_growfs /mnt/apps
-
-# ============================================
-# STEP 7: Verify Final Result
-# ============================================
-
-df -h /mnt/apps
-# Filesystem                     Size  Used Avail Use% Mounted on
-# /dev/mapper/vg_database-lv_apps 18G  9.8G  8.2G  44% /mnt/apps  ✅ EXTENDED!
-
-lsblk
-# NAME                      MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
-# sdb                         8:16   0   10G  0 disk 
-# └─sdb1                      8:17   0   10G  0 part 
-#   └─vg_database-lv_apps   253:0    0   18G  0 lvm  /mnt/apps
-# sdc                         8:32   0   10G  0 disk 
-# └─sdc1                      8:33   0   10G  0 part 
-#   └─vg_database-lv_apps   253:0    0   18G  0 lvm  /mnt/apps  ← SPANNED!
+df -h /postgres
+# Verify
 ```
+> If the storage team increases the size of an existing LUN, I use `pvresize` to make the additional space available to LVM, then extend the LV and filesystem.
+### 4. Add a new LV and mount it separately
+Sometimes we **don't extend `/postgres` itself**. Instead, we create a separate LV for a specific directory.
+For example, `/postgres/data` needs more space.
+```bash
+lvcreate -L 10G -n lv-pgdata vg-database
+# Create a new 10GB LV
+
+mkfs.xfs /dev/vg-database/lv-pgdata
+# Create filesystem
+
+mkdir /postgres/data
+# Create mount point
+
+mount /dev/vg-database/lv-pgdata /postgres/data
+# Mount it
+
+#Then add it to `/etc/fstab` using UUID.
+```
+| Situation | What to do |
+|--|--|
+| VG has free space | `lvextend` → `xfs_growfs` |
+|New Disk Added |`pvcreate` → `vgextend` → `lvextend` → `xfs_growfs`|
+|Existing LUN increased |`pvresize` → `lvextend` → `xfs_growfs`|
+|Separate Filesystem Needed |Create new LV → format → mount|
+
+> I will check whether the Volume Group has 10 GB free. If yes, I extend the LV by 10 GB and then grow the filesystem. If the VG doesn't have free space, I will add a new disk or request the existing LUN to be expanded.
+
+
+
 
 
 # 3. USER MANAGEMENT
@@ -625,3 +732,5 @@ usermod -L chandan # lock the user
 passwd -S chandan # to verify 'L' means account is locked
 usermod -U chandan # unlock user
 ```
+
+# 4. Networking, Services, & System Updates
